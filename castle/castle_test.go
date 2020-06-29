@@ -2,11 +2,11 @@ package castle_test
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/utilitywarehouse/go-castle.io/castle"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/stretchr/testify/assert"
+	"github.com/utilitywarehouse/go-castle.io/castle"
 )
 
 func configureRequest() *http.Request {

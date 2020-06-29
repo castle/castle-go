@@ -58,14 +58,14 @@ decision, err := castle.Authenticate(
 package main
 
 import (
-	"github.com/castle/castle-go /castle"
 	"net/http"
-	"log"
+  "log"
+  "github.com/castle/castle-go/castle"
 )
 
 func main() {
 
-	castle, err := castle.New("secret-api-key")
+	cstl, err := castle.New("secret-api-key")
 
 	if err != nil {
 		log.Fatal(err)
@@ -88,7 +88,7 @@ func main() {
 		if decision == castle.RecommendedActionChallenge {
 			// challenge with MFA and track with castle
 
-			err := castle.TrackSimple(
+			err := cstl.TrackSimple(
 				castle.EventChallengeRequested,
 				"user-123",
 				castle.ContextFromRequest(r),

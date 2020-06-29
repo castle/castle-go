@@ -1,11 +1,11 @@
-# go-castle.io [![Build Status](https://travis-ci.org/uw-labs/go-castle.io.svg?branch=master)](https://travis-ci.org/uw-labs/go-castle.io)
+# castle-go
 
-go-castle.io is a go library wrapping https://castle.io API.
+castle-go  is a go library wrapping https://castle.io API.
 
 ## Install
 
 ```
-go get github.com/utilitywarehouse/go-castle.io
+go get github.com/castle/castle-go/castle
 ```
 
 ## Usage
@@ -13,18 +13,18 @@ go get github.com/utilitywarehouse/go-castle.io
 ### Providing own http client
 
 ```go
-castleio.NewWithHTTPClient("secret-api-key", &http.Client{Timeout: time.Second * 2})
+castle.NewWithHTTPClient("secret-api-key", &http.Client{Timeout: time.Second * 2})
 ```
 
 ### Tracking properties and traits
 
 ```go
 castle.Track(
-		castleio.EventLoginSucceeded,
+		castle.EventLoginSucceeded,
 		"user-123",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 ```
 
@@ -32,11 +32,11 @@ castle.Track(
 
 ```go
 castle.Track(
-		castleio.Event("custom-event"),
+		castle.Event("custom-event"),
 		"user-123",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 ```
 
@@ -44,11 +44,11 @@ castle.Track(
 
 ```go
 decision, err := castle.Authenticate(
-		castleio.EventLoginSucceeded,
+		castle.EventLoginSucceeded,
 		"md-1",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 ```
 
@@ -58,14 +58,14 @@ decision, err := castle.Authenticate(
 package main
 
 import (
-	"github.com/utilitywarehouse/go-castle.io/castleio"
 	"net/http"
-	"log"
+  "log"
+  "github.com/castle/castle-go/castle"
 )
 
 func main() {
 
-	castle, err := castleio.New("secret-api-key")
+	cstl, err := castle.New("secret-api-key")
 
 	if err != nil {
 		log.Fatal(err)
@@ -76,22 +76,22 @@ func main() {
 		// authenticate user then track with castle
 
 		decision, err := castle.AuthenticateSimple(
-			castleio.EventLoginSucceeded,
+			castle.EventLoginSucceeded,
 			"user-123",
-			castleio.ContextFromRequest(r),
+			castle.ContextFromRequest(r),
 		)
 
 		if err != nil {
 			log.Println(err)
 		}
 
-		if decision == castleio.RecommendedActionChallenge {
+		if decision == castle.RecommendedActionChallenge {
 			// challenge with MFA and track with castle
 
-			err := castle.TrackSimple(
-				castleio.EventChallengeRequested,
+			err := cstl.TrackSimple(
+				castle.EventChallengeRequested,
 				"user-123",
-				castleio.ContextFromRequest(r),
+				castle.ContextFromRequest(r),
 			)
 
 			if err != nil {

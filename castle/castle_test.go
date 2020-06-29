@@ -1,12 +1,12 @@
-package castleio_test
+package castle_test
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/utilitywarehouse/go-castle.io/castleio"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/castle/castle-go/castle"
+	"github.com/stretchr/testify/assert"
 )
 
 func configureRequest() *http.Request {
@@ -22,21 +22,21 @@ func configureRequest() *http.Request {
 func TestCastle_SendTrackCall(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.Write([]byte(`{"error": "this is an error"}`))
 	}))
 
-	castleio.TrackEndpoint = ts.URL
+	castle.TrackEndpoint = ts.URL
 
-	err := castle.Track(
-		castleio.EventLoginSucceeded,
+	err := cstl.Track(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
@@ -46,14 +46,14 @@ func TestCastle_SendTrackCall(t *testing.T) {
 		w.WriteHeader(400)
 	}))
 
-	castleio.TrackEndpoint = ts.URL
+	castle.TrackEndpoint = ts.URL
 
-	err = castle.Track(
-		castleio.EventLoginSucceeded,
+	err = cstl.Track(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
@@ -63,14 +63,14 @@ func TestCastle_SendTrackCall(t *testing.T) {
 		w.WriteHeader(204)
 	}))
 
-	castleio.TrackEndpoint = ts.URL
+	castle.TrackEndpoint = ts.URL
 
-	err = castle.Track(
-		castleio.EventLoginSucceeded,
+	err = cstl.Track(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
@@ -80,16 +80,16 @@ func TestCastle_Track(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleTrackRequest struct {
-			Event      castleio.Event    `json:"event"`
+			Event      castle.Event    `json:"event"`
 			UserID     string            `json:"user_id"`
-			Context    *castleio.Context `json:"context"`
+			Context    *castle.Context `json:"context"`
 			Properties map[string]string `json:"properties"`
 			UserTraits map[string]string `json:"user_traits"`
 		}
@@ -104,23 +104,23 @@ func TestCastle_Track(t *testing.T) {
 
 		json.NewDecoder(r.Body).Decode(reqData)
 
-		assert.Equal(t, castleio.EventLoginSucceeded, reqData.Event)
+		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
 		assert.Equal(t, "user-id", reqData.UserID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.UserTraits)
-		assert.Equal(t, castleio.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
 
 		executed = true
 	}))
 
-	castleio.TrackEndpoint = ts.URL
+	castle.TrackEndpoint = ts.URL
 
-	castle.Track(
-		castleio.EventLoginSucceeded,
+	cstl.Track(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -130,16 +130,16 @@ func TestCastle_Track(t *testing.T) {
 func TestCastle_TrackSimple(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleTrackRequest struct {
-			Event   castleio.Event    `json:"event"`
+			Event   castle.Event    `json:"event"`
 			UserID  string            `json:"user_id"`
-			Context *castleio.Context `json:"context"`
+			Context *castle.Context `json:"context"`
 		}
 
 		reqData := &castleTrackRequest{}
@@ -152,19 +152,19 @@ func TestCastle_TrackSimple(t *testing.T) {
 
 		json.NewDecoder(r.Body).Decode(reqData)
 
-		assert.Equal(t, castleio.EventLoginSucceeded, reqData.Event)
+		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
 		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, castleio.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
 
 		executed = true
 	}))
 
-	castleio.TrackEndpoint = ts.URL
+	castle.TrackEndpoint = ts.URL
 
-	castle.TrackSimple(
-		castleio.EventLoginSucceeded,
+	cstl.TrackSimple(
+		castle.EventLoginSucceeded,
 		"user-id",
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -179,33 +179,33 @@ func TestContextFromRequest(t *testing.T) {
 		Value: "__cid_value",
 	})
 
-	ctx := castleio.ContextFromRequest(req)
+	ctx := castle.ContextFromRequest(req)
 	assert.Equal(t, "__cid_value", ctx.ClientID)
 
 	// prefers header to cookie
 	req.Header.Set("HTTP_X_CASTLE_CLIENT_ID", "__cid_header")
 
-	ctx = castleio.ContextFromRequest(req)
+	ctx = castle.ContextFromRequest(req)
 	assert.Equal(t, "__cid_header", ctx.ClientID)
 
 	// grabs IP from request
 	req.Header.Set("X-REAL-IP", "9.9.9.9")
-	ctx = castleio.ContextFromRequest(req)
+	ctx = castle.ContextFromRequest(req)
 	assert.Equal(t, "9.9.9.9", ctx.IP)
 
 	// but prefers X-FORWARDED-FOR
 	req.Header.Set("X-FORWARDED-FOR", "6.6.6.6, 3.3.3.3, 8.8.8.8")
-	ctx = castleio.ContextFromRequest(req)
+	ctx = castle.ContextFromRequest(req)
 	assert.Equal(t, "6.6.6.6", ctx.IP)
 
 	// grabs whitelisted headers only
 
-	for _, whitelistedHeader := range castleio.HeaderWhitelist {
+	for _, whitelistedHeader := range castle.HeaderWhitelist {
 		req.Header.Set(whitelistedHeader, whitelistedHeader)
 	}
 
-	ctx = castleio.ContextFromRequest(req)
-	for _, whitelistedHeader := range castleio.HeaderWhitelist {
+	ctx = castle.ContextFromRequest(req)
+	for _, whitelistedHeader := range castle.HeaderWhitelist {
 		assert.Contains(t, ctx.Headers, http.CanonicalHeaderKey(whitelistedHeader))
 	}
 
@@ -217,16 +217,16 @@ func TestCastle_Authenticate(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleAuthenticateRequest struct {
-			Event      castleio.Event    `json:"event"`
+			Event      castle.Event    `json:"event"`
 			UserID     string            `json:"user_id"`
-			Context    *castleio.Context `json:"context"`
+			Context    *castle.Context `json:"context"`
 			Properties map[string]string `json:"properties"`
 			UserTraits map[string]string `json:"user_traits"`
 		}
@@ -241,23 +241,23 @@ func TestCastle_Authenticate(t *testing.T) {
 
 		json.NewDecoder(r.Body).Decode(reqData)
 
-		assert.Equal(t, castleio.EventLoginSucceeded, reqData.Event)
+		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
 		assert.Equal(t, "user-id", reqData.UserID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.UserTraits)
-		assert.Equal(t, castleio.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
 
 		executed = true
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -268,16 +268,16 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleAuthenticateRequest struct {
-			Event   castleio.Event    `json:"event"`
+			Event   castle.Event    `json:"event"`
 			UserID  string            `json:"user_id"`
-			Context *castleio.Context `json:"context"`
+			Context *castle.Context `json:"context"`
 		}
 
 		reqData := &castleAuthenticateRequest{}
@@ -290,19 +290,19 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 
 		json.NewDecoder(r.Body).Decode(reqData)
 
-		assert.Equal(t, castleio.EventLoginSucceeded, reqData.Event)
+		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
 		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, castleio.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
 
 		executed = true
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	castle.AuthenticateSimple(
-		castleio.EventLoginSucceeded,
+	cstl.AuthenticateSimple(
+		castle.EventLoginSucceeded,
 		"user-id",
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -312,61 +312,61 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 func TestCastle_SendAuthenticateCall(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castleio.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.Write([]byte(`{"error": "this is an error"}`))
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err := castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err := cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
-	assert.Equal(t, castleio.RecommendedActionNone, res)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err = cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
-	assert.Equal(t, castleio.RecommendedActionNone, res)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err = cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
-	assert.Equal(t, castleio.RecommendedActionNone, res)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -374,18 +374,18 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 		w.Write([]byte(`{"action": "allow"}`))
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err = cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
-	assert.Equal(t, castleio.RecommendedActionAllow, res)
+	assert.Equal(t, castle.RecommendedActionAllow, res)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -393,18 +393,18 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 		w.Write([]byte(`{"action": "challenge"}`))
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err = cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
-	assert.Equal(t, castleio.RecommendedActionChallenge, res)
+	assert.Equal(t, castle.RecommendedActionChallenge, res)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -412,16 +412,16 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 		w.Write([]byte(`{"action": "deny"}`))
 	}))
 
-	castleio.AuthenticateEndpoint = ts.URL
+	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
-		castleio.EventLoginSucceeded,
+	res, err = cstl.Authenticate(
+		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
 		map[string]string{"trait1": "traitValue1"},
-		castleio.ContextFromRequest(req),
+		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
-	assert.Equal(t, castleio.RecommendedActionDeny, res)
+	assert.Equal(t, castle.RecommendedActionDeny, res)
 }

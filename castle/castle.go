@@ -1,11 +1,11 @@
-package castleio
+package castle
 
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"github.com/pkg/errors"
 	"github.com/tomasen/realip"
-	"net/http"
 )
 
 // TrackEndpoint defines the tracking URL castle.io side

@@ -170,14 +170,14 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusNoContent {
-		return errors.Errorf("expected 204 status but go %s", res.Status)
+	if expected, got := http.StatusNoContent, res.StatusCode; expected != got {
+		return errors.Errorf("expected %d status but got %d", expected, got)
 	}
 
 	resp := &castleAPIResponse{}
 
 	if resp.Error != "" {
-		//we have an api error
+		// we have an api error
 		return errors.New(resp.Error)
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+
 	"github.com/pkg/errors"
 	"github.com/tomasen/realip"
 )
@@ -67,9 +68,9 @@ type Castle struct {
 
 // Context captures data from HTTP request
 type Context struct {
-	ClientID string
-	IP       string
-	Headers  map[string]string
+	ClientID string            `json:"client_id"`
+	IP       string            `json:"ip"`
+	Headers  map[string]string `json:"headers"`
 }
 
 func getClientID(r *http.Request) string {

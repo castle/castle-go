@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/castle/go-castle.io/castle"
+	"github.com/castle/castle-go/castle"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +22,7 @@ func configureRequest() *http.Request {
 func TestCastle_SendTrackCall(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -31,7 +31,7 @@ func TestCastle_SendTrackCall(t *testing.T) {
 
 	castle.TrackEndpoint = ts.URL
 
-	err := castle.Track(
+	err := cstl.Track(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -48,7 +48,7 @@ func TestCastle_SendTrackCall(t *testing.T) {
 
 	castle.TrackEndpoint = ts.URL
 
-	err = castle.Track(
+	err = cstl.Track(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -65,7 +65,7 @@ func TestCastle_SendTrackCall(t *testing.T) {
 
 	castle.TrackEndpoint = ts.URL
 
-	err = castle.Track(
+	err = cstl.Track(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -80,7 +80,7 @@ func TestCastle_Track(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
@@ -115,7 +115,7 @@ func TestCastle_Track(t *testing.T) {
 
 	castle.TrackEndpoint = ts.URL
 
-	castle.Track(
+	cstl.Track(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -130,7 +130,7 @@ func TestCastle_Track(t *testing.T) {
 func TestCastle_TrackSimple(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
@@ -161,7 +161,7 @@ func TestCastle_TrackSimple(t *testing.T) {
 
 	castle.TrackEndpoint = ts.URL
 
-	castle.TrackSimple(
+	cstl.TrackSimple(
 		castle.EventLoginSucceeded,
 		"user-id",
 		castle.ContextFromRequest(req),
@@ -217,7 +217,7 @@ func TestCastle_Authenticate(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
@@ -252,7 +252,7 @@ func TestCastle_Authenticate(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	castle.Authenticate(
+	cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -268,7 +268,7 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	var executed = false
 
@@ -299,7 +299,7 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	castle.AuthenticateSimple(
+	cstl.AuthenticateSimple(
 		castle.EventLoginSucceeded,
 		"user-id",
 		castle.ContextFromRequest(req),
@@ -312,7 +312,7 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 func TestCastle_SendAuthenticateCall(t *testing.T) {
 	req := configureRequest()
 
-	castle, _ := castle.New("secret-string")
+	cstl, _ := castle.New("secret-string")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -321,7 +321,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err := castle.Authenticate(
+	res, err := cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -339,7 +339,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
+	res, err = cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -357,7 +357,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
+	res, err = cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -376,7 +376,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
+	res, err = cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -395,7 +395,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
+	res, err = cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},
@@ -414,7 +414,7 @@ func TestCastle_SendAuthenticateCall(t *testing.T) {
 
 	castle.AuthenticateEndpoint = ts.URL
 
-	res, err = castle.Authenticate(
+	res, err = cstl.Authenticate(
 		castle.EventLoginSucceeded,
 		"user-id",
 		map[string]string{"prop1": "propValue1"},

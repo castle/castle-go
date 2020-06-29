@@ -143,7 +143,7 @@ func (c *Castle) Track(event Event, userID string, properties map[string]string,
 
 // TrackSimple allows simple tracking of events into castle without specifying traits or properties
 func (c *Castle) TrackSimple(event Event, userID string, context *Context) error {
-	var EmptyMap map[string]string
+	EmptyMap := make(map[string]string)
 	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
 	return c.SendTrackCall(e)
 }
@@ -195,7 +195,7 @@ func (c *Castle) Authenticate(event Event, userID string, properties map[string]
 
 // AuthenticateSimple allows authenticate call into castle without specifying traits or properties
 func (c *Castle) AuthenticateSimple(event Event, userID string, context *Context) (AuthenticationRecommendedAction, error) {
-	var EmptyMap map[string]string
+	EmptyMap := make(map[string]string)
 	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
 	return c.SendAuthenticateCall(e)
 }

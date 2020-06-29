@@ -5,7 +5,7 @@ castle-go  is a go library wrapping https://castle.io API.
 ## Install
 
 ```
-go get github.com/castle/castle-go
+go get github.com/castle/castle-go/castle
 ```
 
 ## Usage

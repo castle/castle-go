@@ -13,3 +13,6 @@
 
 # Directory of executable files
 /bin
+
+# OSX
+.DS_Store

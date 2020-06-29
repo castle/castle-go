@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
-	"github.com/tomasen/realip"
 )
 
 // TrackEndpoint defines the tracking URL castle.io side
@@ -93,6 +92,14 @@ func getClientID(r *http.Request) string {
 	return clientID
 }
 
+func getIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	if forwarded != "" {
+		return forwarded
+	}
+	return r.RemoteAddr
+}
+
 func isHeaderWhitelisted(header string) bool {
 	for _, whitelistedHeader := range HeaderWhitelist {
 
@@ -114,7 +121,7 @@ func ContextFromRequest(r *http.Request) *Context {
 		}
 	}
 
-	return &Context{ClientID: getClientID(r), IP: realip.FromRequest(r), Headers: headers}
+	return &Context{ClientID: getClientID(r), IP: getIP(r), Headers: headers}
 }
 
 type castleAPIRequest struct {

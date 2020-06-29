@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+
 	"github.com/pkg/errors"
 	"github.com/tomasen/realip"
 )
@@ -67,9 +68,9 @@ type Castle struct {
 
 // Context captures data from HTTP request
 type Context struct {
-	ClientID string
-	IP       string
-	Headers  map[string]string
+	ClientID string            `json:"client_id"`
+	IP       string            `json:"ip"`
+	Headers  map[string]string `json:"headers"`
 }
 
 func getClientID(r *http.Request) string {
@@ -142,7 +143,8 @@ func (c *Castle) Track(event Event, userID string, properties map[string]string,
 
 // TrackSimple allows simple tracking of events into castle without specifying traits or properties
 func (c *Castle) TrackSimple(event Event, userID string, context *Context) error {
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context}
+	EmptyMap := make(map[string]string)
+	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
 	return c.SendTrackCall(e)
 }
 
@@ -168,14 +170,14 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusNoContent {
-		return errors.Errorf("expected 204 status but go %s", res.Status)
+	if expected, got := http.StatusNoContent, res.StatusCode; expected != got {
+		return errors.Errorf("expected %d status but got %d", expected, got)
 	}
 
 	resp := &castleAPIResponse{}
 
 	if resp.Error != "" {
-		//we have an api error
+		// we have an api error
 		return errors.New(resp.Error)
 	}
 
@@ -193,7 +195,8 @@ func (c *Castle) Authenticate(event Event, userID string, properties map[string]
 
 // AuthenticateSimple allows authenticate call into castle without specifying traits or properties
 func (c *Castle) AuthenticateSimple(event Event, userID string, context *Context) (AuthenticationRecommendedAction, error) {
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context}
+	EmptyMap := make(map[string]string)
+	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
 	return c.SendAuthenticateCall(e)
 }
 

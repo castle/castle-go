@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/castle/castle-go/castle"
 	"github.com/stretchr/testify/assert"
 )
@@ -87,9 +88,9 @@ func TestCastle_Track(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleTrackRequest struct {
-			Event      castle.Event    `json:"event"`
+			Event      castle.Event      `json:"event"`
 			UserID     string            `json:"user_id"`
-			Context    *castle.Context `json:"context"`
+			Context    *castle.Context   `json:"context"`
 			Properties map[string]string `json:"properties"`
 			UserTraits map[string]string `json:"user_traits"`
 		}
@@ -138,7 +139,7 @@ func TestCastle_TrackSimple(t *testing.T) {
 
 		type castleTrackRequest struct {
 			Event   castle.Event    `json:"event"`
-			UserID  string            `json:"user_id"`
+			UserID  string          `json:"user_id"`
 			Context *castle.Context `json:"context"`
 		}
 
@@ -224,9 +225,9 @@ func TestCastle_Authenticate(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type castleAuthenticateRequest struct {
-			Event      castle.Event    `json:"event"`
+			Event      castle.Event      `json:"event"`
 			UserID     string            `json:"user_id"`
-			Context    *castle.Context `json:"context"`
+			Context    *castle.Context   `json:"context"`
 			Properties map[string]string `json:"properties"`
 			UserTraits map[string]string `json:"user_traits"`
 		}
@@ -276,7 +277,7 @@ func TestCastle_AuthenticateSimple(t *testing.T) {
 
 		type castleAuthenticateRequest struct {
 			Event   castle.Event    `json:"event"`
-			UserID  string            `json:"user_id"`
+			UserID  string          `json:"user_id"`
 			Context *castle.Context `json:"context"`
 		}
 

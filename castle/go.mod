@@ -1,4 +1,4 @@
-module castle-go/castle
+module github.com/castle/castle-go/castle
 
 go 1.14
 

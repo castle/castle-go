@@ -63,7 +63,6 @@ var HeaderAllowList = []string{
 	"Connection",
 	"Content-Length",
 	"Content-Type",
-	"Cookie",
 	"Dnt",
 	"Host",
 	"Origin",
@@ -75,7 +74,6 @@ var HeaderAllowList = []string{
 	"Sec-Fetch-User",
 	"Te",
 	"Upgrade-Insecure-Requests",
-	"User-Agent",
 	"X-Castle-Client-Id",
 }
 

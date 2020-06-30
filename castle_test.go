@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/castle/castle-go/castle"
+	"github.com/castle/castle-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -201,12 +201,12 @@ func TestContextFromRequest(t *testing.T) {
 
 	// grabs whitelisted headers only
 
-	for _, whitelistedHeader := range castle.HeaderWhitelist {
+	for _, whitelistedHeader := range castle.HeaderAllowList {
 		req.Header.Set(whitelistedHeader, whitelistedHeader)
 	}
 
 	ctx = castle.ContextFromRequest(req)
-	for _, whitelistedHeader := range castle.HeaderWhitelist {
+	for _, whitelistedHeader := range castle.HeaderAllowList {
 		assert.Contains(t, ctx.Headers, http.CanonicalHeaderKey(whitelistedHeader))
 	}
 

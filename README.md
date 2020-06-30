@@ -1,11 +1,11 @@
 # castle-go
 
-castle-go  is a go library wrapping https://castle.io API.
+castle-go is a go library wrapping https://castle.io API.
 
 ## Install
 
 ```
-go get github.com/castle/castle-go/castle
+go get github.com/castle/castle-go
 ```
 
 ## Usage
@@ -20,36 +20,36 @@ castle.NewWithHTTPClient("secret-api-key", &http.Client{Timeout: time.Second * 2
 
 ```go
 castle.Track(
-		castle.EventLoginSucceeded,
-		"user-123",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
+  castle.EventLoginSucceeded,
+  "user-123",
+  map[string]string{"prop1": "propValue1"},
+  map[string]string{"trait1": "traitValue1"},
+  castle.ContextFromRequest(req),
+)
 ```
 
 ### Tracking custom events
 
 ```go
 castle.Track(
-		castle.Event("custom-event"),
-		"user-123",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
+  castle.Event("custom-event"),
+  "user-123",
+  map[string]string{"prop1": "propValue1"},
+  map[string]string{"trait1": "traitValue1"},
+  castle.ContextFromRequest(req),
+)
 ```
 
 ### Adaptive authentication
 
 ```go
 decision, err := castle.Authenticate(
-		castle.EventLoginSucceeded,
-		"md-1",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
+  castle.EventLoginSucceeded,
+  "md-1",
+  map[string]string{"prop1": "propValue1"},
+  map[string]string{"trait1": "traitValue1"},
+  castle.ContextFromRequest(req),
+)
 ```
 
 ### Example

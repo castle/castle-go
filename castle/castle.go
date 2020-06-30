@@ -74,6 +74,7 @@ var HeaderAllowList = []string{
 	"Sec-Fetch-User",
 	"Te",
 	"Upgrade-Insecure-Requests",
+	"User-Agent",
 	"X-Castle-Client-Id",
 }
 

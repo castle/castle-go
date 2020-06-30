@@ -52,8 +52,32 @@ func New(secret string) (*Castle, error) {
 	return NewWithHTTPClient(secret, client)
 }
 
-// HeaderWhitelist keeps a list of headers that will be forwarded to castle
-var HeaderWhitelist = []string{"USER-AGENT", "ACCEPT", "ACCEPT-LANGUAGE", "ACCEPT-ENCODING"}
+// HeaderAllowList keeps a list of headers that will be forwarded to castle
+var HeaderAllowList = []string{
+	"Accept",
+	"Accept-Charset",
+	"Accept-Datetime",
+	"Accept-Encoding",
+	"Accept-Language",
+	"Cache-Control",
+	"Connection",
+	"Content-Length",
+	"Content-Type",
+	"Cookie",
+	"Dnt",
+	"Host",
+	"Origin",
+	"Pragma",
+	"Referer",
+	"Sec-Fetch-Dest",
+	"Sec-Fetch-Mode",
+	"Sec-Fetch-Site",
+	"Sec-Fetch-User",
+	"Te",
+	"Upgrade-Insecure-Requests",
+	"User-Agent",
+	"X-Castle-Client-Id",
+}
 
 // NewWithHTTPClient same as New but allows passing of http.Client with custom config
 func NewWithHTTPClient(secret string, client *http.Client) (*Castle, error) {
@@ -93,10 +117,10 @@ func getClientID(r *http.Request) string {
 	return clientID
 }
 
-func isHeaderWhitelisted(header string) bool {
-	for _, whitelistedHeader := range HeaderWhitelist {
+func isHeaderAllowed(header string) bool {
+	for _, allowedHeader := range HeaderAllowList {
 
-		if header == http.CanonicalHeaderKey(whitelistedHeader) {
+		if header == http.CanonicalHeaderKey(allowedHeader) {
 			return true
 		}
 	}
@@ -109,7 +133,7 @@ func ContextFromRequest(r *http.Request) *Context {
 	headers := make(map[string]string)
 
 	for requestHeader := range r.Header {
-		if isHeaderWhitelisted(requestHeader) {
+		if isHeaderAllowed(requestHeader) {
 			headers[requestHeader] = r.Header.Get(requestHeader)
 		}
 	}

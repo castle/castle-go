@@ -58,7 +58,7 @@ decision, err := castle.Authenticate(
 package main
 
 import (
-	"net/http"
+  "net/http"
   "log"
   "github.com/castle/castle-go/castle"
 )

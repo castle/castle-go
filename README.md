@@ -1,6 +1,8 @@
 # castle-go
 
-castle-go is a go library wrapping https://castle.io API.
+castle-go is a Go library wrapping the https://castle.io API. 
+
+**Note:** This library is currently a prototype. To see fully supported SDKs, please refer to https://docs.castle.io/baseline/
 
 ## Install
 

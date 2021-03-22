@@ -107,7 +107,7 @@ func getClientID(r *http.Request) string {
 		clientID = cidCookie.Value
 	}
 
-	cidHeader := r.Header.Get("HTTP_X_CASTLE_CLIENT_ID")
+	cidHeader := r.Header.Get("X-Castle-Client-Id")
 
 	if cidHeader != "" {
 		clientID = cidHeader

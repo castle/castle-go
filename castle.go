@@ -122,12 +122,12 @@ func ContextFromRequest(r *http.Request) *Context {
 }
 
 type User struct {
-	id           string            `json:"id"`
-	email        string            `json:"email"`
-	phone        string            `json:"phone"`
-	name         string            `json:"name"`
-	registeredAt string            `json:"registered_at"`
-	traits       map[string]string `json:"traits"`
+	Id           string            `json:"id"`
+	Email        string            `json:"email"`
+	Phone        string            `json:"phone"`
+	Name         string            `json:"name"`
+	RegisteredAt string            `json:"registered_at"`
+	Traits       map[string]string `json:"traits"`
 }
 
 type castleAPIRequest struct {
@@ -156,7 +156,7 @@ type castleAPIResponse struct {
 
 // Filter sends a filter request to castle.io
 // see https://reference.castle.io/#operation/filter for details
-func (c *Castle) Filter(eventType EventType, user User, properties map[string]string, context *Context) error {
+func (c *Castle) Filter(eventType EventType, eventStatus Status, user User, requestToken string, properties map[string]string, context *Context) error {
 	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
 	return c.SendFilterCall(e)
 }
@@ -202,8 +202,8 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 // Risk sends a risk request to castle.io
 // see https://reference.castle.io/#operation/risk for details
-func (c *Castle) Risk(eventType EventType, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
-	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
+func (c *Castle) Risk(eventType EventType, eventStatus Status, user User, requestToken string, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
+	e := &castleAPIRequest{Type: eventType, Status: eventStatus, User: user, RequestToken: requestToken, Context: context, Properties: properties}
 	return c.SendRiskCall(e)
 }
 

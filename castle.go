@@ -9,29 +9,33 @@ import (
 	"github.com/tomasen/realip"
 )
 
-// TrackEndpoint defines the tracking URL castle.io side
-var TrackEndpoint = "https://api.castle.io/v1/track"
+// FilterEndpoint defines the filter URL castle.io side
+var FilterEndpoint = "https://api.castle.io/v1/filter"
 
-// AuthenticateEndpoint defines the adaptive authentication URL castle.io side
-var AuthenticateEndpoint = "https://api.castle.io/v1/authenticate"
+// RiskEndpoint defines the risk URL castle.io side
+var RiskEndpoint = "https://api.castle.io/v1/risk"
 
-// Event is an enum defining types of event castle tracks
-type Event string
+// EventType is an enum defining types of event castle tracks
+type EventType string
 
-// See https://castle.io/docs/events
+// See https://docs.castle.io/docs/events
 const (
-	EventLoginSucceeded                Event = "$login.succeeded"
-	EventLoginFailed                   Event = "$login.failed"
-	EventPasswordResetRequestSucceeded Event = "$password_reset_request.succeeded"
-	EventPasswordResetRequestFailed    Event = "$password_reset_request.failed"
-	EventPasswordResetSucceeded        Event = "$password_reset.succeeded"
-	EventPasswordResetFailed           Event = "$password_reset.failed"
-	EventIncidentMitigated             Event = "$incident.mitigated"
-	EventReviewResolved                Event = "$review.resolved"
-	EventReviewEscalated               Event = "$review.escalated"
-	EventChallengeRequested            Event = "$challenge.requested"
-	EventChallengeSucceeded            Event = "$challenge.succeeded"
-	EventChallengeFailed               Event = "$challenge.failed"
+	EventLogin                EventType = "$login"
+	EventRegistration         EventType = "$registration"
+	EventProfileUpdate        EventType = "$profile_update"
+	EventProfileReset         EventType = "$profile_reset"
+	EventPasswordResetRequest EventType = "$password_reset_request"
+	EventChallenge            EventType = "$challenge"
+)
+
+// Status is an enum defining the statuses for a given event.
+type Status string
+
+// See https://docs.castle.io/docs/events
+const (
+	StatusAttempted Status = "$attempted"
+	StatusSucceeded Status = "$succeeded"
+	StatusFailed    Status = "$failed"
 )
 
 // AuthenticationRecommendedAction encapsulates the 3 possible responses from auth call (allow, challenge, deny)
@@ -91,34 +95,12 @@ type Castle struct {
 
 // Context captures data from HTTP request
 type Context struct {
-	ClientID string            `json:"client_id"`
-	IP       string            `json:"ip"`
-	Headers  map[string]string `json:"headers"`
-}
-
-func getClientID(r *http.Request) string {
-
-	var clientID string
-
-	// ClientID is __cid cookie or X-Castle-Client-Id header
-	cidCookie, _ := r.Cookie("__cid")
-
-	if cidCookie != nil {
-		clientID = cidCookie.Value
-	}
-
-	cidHeader := r.Header.Get("HTTP_X_CASTLE_CLIENT_ID")
-
-	if cidHeader != "" {
-		clientID = cidHeader
-	}
-
-	return clientID
+	IP      string            `json:"ip"`
+	Headers map[string]string `json:"headers"`
 }
 
 func isHeaderAllowed(header string) bool {
 	for _, allowedHeader := range HeaderAllowList {
-
 		if header == http.CanonicalHeaderKey(allowedHeader) {
 			return true
 		}
@@ -128,7 +110,6 @@ func isHeaderAllowed(header string) bool {
 
 // ContextFromRequest builds castle context from current http.Request
 func ContextFromRequest(r *http.Request) *Context {
-
 	headers := make(map[string]string)
 
 	for requestHeader := range r.Header {
@@ -137,35 +118,51 @@ func ContextFromRequest(r *http.Request) *Context {
 		}
 	}
 
-	return &Context{ClientID: getClientID(r), IP: realip.FromRequest(r), Headers: headers}
+	return &Context{IP: realip.FromRequest(r), Headers: headers}
+}
+
+type User struct {
+	id           string            `json:"id"`
+	email        string            `json:"email"`
+	phone        string            `json:"phone"`
+	name         string            `json:"name"`
+	registeredAt string            `json:"registered_at"`
+	traits       map[string]string `json:"traits"`
 }
 
 type castleAPIRequest struct {
-	Event      Event             `json:"event"`
-	UserID     string            `json:"user_id"`
-	Context    *Context          `json:"context"`
-	Properties map[string]string `json:"properties"`
-	UserTraits map[string]string `json:"user_traits"`
+	Type         EventType         `json:"type"`
+	Status       Status            `json:"status"`
+	RequestToken string            `json:"request_token"`
+	User         User              `json:"user"`
+	Context      *Context          `json:"context"`
+	Properties   map[string]string `json:"properties"`
 }
 
 type castleAPIResponse struct {
-	Error       string `json:"error"`
-	Type        string `json:"type"`
-	Message     string `json:"message"`
-	Action      string `json:"action"`
-	UserID      string `json:"user_id"`
-	DeviceToken string `json:"device_token"`
+	Type    string `json:"type"`
+	Message string `json:"message"`
+	Risk    string `json:"risk"`
+	Policy  struct {
+		name       string `json:"name"`
+		id         string `json:"id"`
+		revisionId string `json:"revision_id"`
+		action     string `json:"action"`
+	} `json:"policy"`
+	Device struct {
+		token string `json:"token"`
+	} `json:"device"`
 }
 
 // Track sends a tracking request to castle.io
 // see https://castle.io/docs/events for details
-func (c *Castle) Track(event Event, userID string, properties map[string]string, userTraits map[string]string, context *Context) error {
+func (c *Castle) Track(event EventType, userID string, properties map[string]string, userTraits map[string]string, context *Context) error {
 	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: properties, UserTraits: userTraits}
 	return c.SendTrackCall(e)
 }
 
 // TrackSimple allows simple tracking of events into castle without specifying traits or properties
-func (c *Castle) TrackSimple(event Event, userID string, context *Context) error {
+func (c *Castle) TrackSimple(event EventType, userID string, context *Context) error {
 	EmptyMap := make(map[string]string)
 	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
 	return c.SendTrackCall(e)
@@ -176,8 +173,7 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(e)
 
-	req, err := http.NewRequest(http.MethodPost, TrackEndpoint, b)
-
+	req, err := http.NewRequest(http.MethodPost, FilterEndpoint, b)
 	if err != nil {
 		return err
 	}
@@ -186,7 +182,6 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 	req.Header.Set("content-type", "application/json")
 
 	res, err := c.client.Do(req)
-
 	if err != nil {
 		return err
 	}
@@ -209,18 +204,11 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 	return err
 }
 
-// Authenticate sends an authentication request to castle.io
-// see https://castle.io/docs/authentication for details
-func (c *Castle) Authenticate(event Event, userID string, properties map[string]string, userTraits map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: properties, UserTraits: userTraits}
-	return c.SendAuthenticateCall(e)
-}
-
-// AuthenticateSimple allows authenticate call into castle without specifying traits or properties
-func (c *Castle) AuthenticateSimple(event Event, userID string, context *Context) (AuthenticationRecommendedAction, error) {
-	EmptyMap := make(map[string]string)
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
-	return c.SendAuthenticateCall(e)
+// Risk sends a risk request to castle.io
+// see https://reference.castle.io/#operation/risk for details
+func (c *Castle) Authenticate(eventType EventType, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
+	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
+	return c.SendRiskCall(e)
 }
 
 func authenticationRecommendedActionFromString(action string) AuthenticationRecommendedAction {
@@ -237,12 +225,11 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 }
 
 // SendAuthenticateCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendAuthenticateCall(e *castleAPIRequest) (AuthenticationRecommendedAction, error) {
+func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAction, error) {
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(e)
 
-	req, err := http.NewRequest(http.MethodPost, AuthenticateEndpoint, b)
-
+	req, err := http.NewRequest(http.MethodPost, RiskEndpoint, b)
 	if err != nil {
 		return RecommendedActionNone, err
 	}
@@ -251,7 +238,6 @@ func (c *Castle) SendAuthenticateCall(e *castleAPIRequest) (AuthenticationRecomm
 	req.Header.Set("content-type", "application/json")
 
 	res, err := c.client.Do(req)
-
 	if err != nil {
 		return RecommendedActionNone, err
 	}
@@ -259,27 +245,26 @@ func (c *Castle) SendAuthenticateCall(e *castleAPIRequest) (AuthenticationRecomm
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
-		return RecommendedActionNone, errors.Errorf("expected 201 status but go %s", res.Status)
+		return RecommendedActionNone, errors.Errorf("expected 201 status but got %s", res.Status)
 	}
 
 	resp := &castleAPIResponse{}
 
 	json.NewDecoder(res.Body).Decode(resp)
 
-	if resp.Error != "" {
-		//we have an api error
-		return RecommendedActionNone, errors.New(resp.Error)
+	if resp.Type != "" {
+		// we have an api error
+		return RecommendedActionNone, errors.New(resp.Type)
 	}
 
-	if resp.Type != "" {
-		//we have an api error
+	if resp.Message != "" {
+		// we have an api error
 		return RecommendedActionNone, errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
 
-	return authenticationRecommendedActionFromString(resp.Action), err
+	return authenticationRecommendedActionFromString(resp.Policy.action), err
 }
 
 // WebhookBody encapsulates body of webhook notificationc coming from castle.io
 // see https://castle.io/docs/webhooks
-type WebhookBody struct {
-}
+type WebhookBody struct{}

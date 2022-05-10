@@ -20,12 +20,12 @@ type EventType string
 
 // See https://docs.castle.io/docs/events
 const (
-	EventLogin                EventType = "$login"
-	EventRegistration         EventType = "$registration"
-	EventProfileUpdate        EventType = "$profile_update"
-	EventProfileReset         EventType = "$profile_reset"
-	EventPasswordResetRequest EventType = "$password_reset_request"
-	EventChallenge            EventType = "$challenge"
+	EventTypeLogin                EventType = "$login"
+	EventTypeRegistration         EventType = "$registration"
+	EventTypeProfileUpdate        EventType = "$profile_update"
+	EventTypeProfileReset         EventType = "$profile_reset"
+	EventTypePasswordResetRequest EventType = "$password_reset_request"
+	EventTypeChallenge            EventType = "$challenge"
 )
 
 // Status is an enum defining the statuses for a given event.
@@ -144,32 +144,25 @@ type castleAPIResponse struct {
 	Message string `json:"message"`
 	Risk    string `json:"risk"`
 	Policy  struct {
-		name       string `json:"name"`
-		id         string `json:"id"`
-		revisionId string `json:"revision_id"`
-		action     string `json:"action"`
+		Name       string `json:"name"`
+		Id         string `json:"id"`
+		RevisionId string `json:"revision_id"`
+		Action     string `json:"action"`
 	} `json:"policy"`
 	Device struct {
-		token string `json:"token"`
+		Token string `json:"token"`
 	} `json:"device"`
 }
 
-// Track sends a tracking request to castle.io
-// see https://castle.io/docs/events for details
-func (c *Castle) Track(event EventType, userID string, properties map[string]string, userTraits map[string]string, context *Context) error {
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: properties, UserTraits: userTraits}
-	return c.SendTrackCall(e)
+// Filter sends a filter request to castle.io
+// see https://reference.castle.io/#operation/filter for details
+func (c *Castle) Filter(eventType EventType, user User, properties map[string]string, context *Context) error {
+	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
+	return c.SendFilterCall(e)
 }
 
-// TrackSimple allows simple tracking of events into castle without specifying traits or properties
-func (c *Castle) TrackSimple(event EventType, userID string, context *Context) error {
-	EmptyMap := make(map[string]string)
-	e := &castleAPIRequest{Event: event, UserID: userID, Context: context, Properties: EmptyMap, UserTraits: EmptyMap}
-	return c.SendTrackCall(e)
-}
-
-// SendTrackCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
+// SendFilterCall is a plumbing method constructing the HTTP req/res and interpreting results
+func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(e)
 
@@ -194,19 +187,22 @@ func (c *Castle) SendTrackCall(e *castleAPIRequest) error {
 
 	resp := &castleAPIResponse{}
 
-	if resp.Error != "" {
+	if resp.Type != "" {
 		// we have an api error
-		return errors.New(resp.Error)
+		return errors.New(resp.Type)
 	}
 
-	json.NewDecoder(res.Body).Decode(resp)
+	if resp.Message != "" {
+		// we have an api error
+		return errors.Errorf("%s: %s", resp.Type, resp.Message)
+	}
 
-	return err
+	return json.NewDecoder(res.Body).Decode(resp)
 }
 
 // Risk sends a risk request to castle.io
 // see https://reference.castle.io/#operation/risk for details
-func (c *Castle) Authenticate(eventType EventType, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
+func (c *Castle) Risk(eventType EventType, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
 	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
 	return c.SendRiskCall(e)
 }
@@ -224,7 +220,7 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 	}
 }
 
-// SendAuthenticateCall is a plumbing method constructing the HTTP req/res and interpreting results
+// SendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results
 func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAction, error) {
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(e)
@@ -262,7 +258,7 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 		return RecommendedActionNone, errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
 
-	return authenticationRecommendedActionFromString(resp.Policy.action), err
+	return authenticationRecommendedActionFromString(resp.Policy.Action), err
 }
 
 // WebhookBody encapsulates body of webhook notificationc coming from castle.io

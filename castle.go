@@ -205,7 +205,7 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 	defer res.Body.Close()
 
-	if expected, got := http.StatusNoContent, res.StatusCode; expected != got {
+	if expected, got := http.StatusCreated, res.StatusCode; expected != got {
 		return errors.Errorf("expected %d status but got %d", expected, got)
 	}
 

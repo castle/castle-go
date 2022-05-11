@@ -78,7 +78,9 @@ func TestCastle_SendFilterCall(t *testing.T) {
 
 	fs = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(204)
+		w.WriteHeader(201)
+		_, err := w.Write([]byte(`{"policy": {"name": "name"}}`))
+		require.NoError(t, err)
 	}))
 
 	castle.FilterEndpoint = fs.URL
@@ -110,6 +112,11 @@ func TestCastle_Filter(t *testing.T) {
 	executed := false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(201)
+		_, err := w.Write([]byte(`{"policy": {"name": "name"}}`))
+		require.NoError(t, err)
+
 		type castleFilterRequest struct {
 			Type         castle.EventType   `json:"type"`
 			Status       castle.EventStatus `json:"status"`
@@ -127,7 +134,7 @@ func TestCastle_Filter(t *testing.T) {
 		assert.Equal(t, password, "secret-string")
 		assert.True(t, ok)
 
-		err := json.NewDecoder(r.Body).Decode(reqData)
+		err = json.NewDecoder(r.Body).Decode(reqData)
 		require.NoError(t, err)
 
 		assert.Equal(t, castle.EventTypeLogin, reqData.Type)
@@ -201,6 +208,11 @@ func TestCastle_Risk(t *testing.T) {
 	executed := false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(201)
+		_, err := w.Write([]byte(`{"policy": {"name": "name"}}`))
+		require.NoError(t, err)
+
 		type castleRiskRequest struct {
 			Type         castle.EventType   `json:"type"`
 			Status       castle.EventStatus `json:"status"`

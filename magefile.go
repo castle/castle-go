@@ -25,7 +25,7 @@ func Install() error {
 // subdirectories
 func Lint() error {
 	linter := sh.OutCmd(filepath.Join(repoRoot(), "bin", "golangci-lint"))
-	version := "1.39.0"
+	version := "1.46.0"
 
 	currentVersion, err := linter("--version")
 	if err != nil || !strings.Contains(currentVersion, version) {

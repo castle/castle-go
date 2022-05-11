@@ -41,7 +41,7 @@ linters-settings:
 
 linters:
   enable:
-    - golint # Golint differs from gofmt. Gofmt reformats Go source code, whereas golint prints out style mistakes [fast: true]
+    - revive # golint replacement [fast: true]
     - misspell # Finds commonly misspelled English words in comments [fast: true]
     - nakedret # Finds naked returns in functions greater than a specified function length [fast: true]
     - errcheck # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases [fast: false]
@@ -79,13 +79,6 @@ issues:
     - Error return value of
       .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv|.*Disconnect).
       is not checked
-
-    # golint: Exported variables are rarely used and generally reserved for errors which should be self explanitory
-    - exported var \w+ should have comment or be unexported
-
-    # golint: False positive when tests are defined in package 'test'
-    - func name will be used as test\.Test.* by other packages, and that
-      stutters; consider calling this
 
     # gas: Too many false-positives on 'unsafe' usage
     - Use of unsafe calls should be audited

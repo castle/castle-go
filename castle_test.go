@@ -8,6 +8,7 @@ import (
 
 	"github.com/castle/castle-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func configureRequest() *http.Request {
@@ -23,11 +24,13 @@ func configureRequest() *http.Request {
 func TestCastle_SendFilterCall(t *testing.T) {
 	req := configureRequest()
 
-	cstl, _ := castle.New("secret-string")
+	cstl, err := castle.New("secret-string")
+	require.NoError(t, err)
 
 	fs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"error": "this is an error"}`))
+		_, err := w.Write([]byte(`{"error": "this is an error"}`))
+		require.NoError(t, err)
 	}))
 
 	castle.FilterEndpoint = fs.URL
@@ -37,11 +40,11 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventStatus: castle.EventStatusSucceeded,
 	}
 
-	err := cstl.Filter(
+	err = cstl.Filter(
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -65,7 +68,7 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -89,7 +92,7 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -101,7 +104,8 @@ func TestCastle_SendFilterCall(t *testing.T) {
 func TestCastle_Filter(t *testing.T) {
 	req := configureRequest()
 
-	cstl, _ := castle.New("secret-string")
+	cstl, err := castle.New("secret-string")
+	require.NoError(t, err)
 
 	executed := false
 
@@ -123,11 +127,12 @@ func TestCastle_Filter(t *testing.T) {
 		assert.Equal(t, password, "secret-string")
 		assert.True(t, ok)
 
-		json.NewDecoder(r.Body).Decode(reqData)
+		err := json.NewDecoder(r.Body).Decode(reqData)
+		require.NoError(t, err)
 
 		assert.Equal(t, castle.EventTypeLogin, reqData.Type)
 		assert.Equal(t, castle.EventStatusSucceeded, reqData.Status)
-		assert.Equal(t, "user-id", reqData.User.Id)
+		assert.Equal(t, "user-id", reqData.User.ID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.User.Traits)
 		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
@@ -137,18 +142,19 @@ func TestCastle_Filter(t *testing.T) {
 
 	castle.FilterEndpoint = ts.URL
 
-	cstl.Filter(
+	err = cstl.Filter(
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
 	)
+	require.NoError(t, err)
 
 	assert.True(t, executed)
 }
@@ -189,7 +195,8 @@ func TestContextFromRequest(t *testing.T) {
 func TestCastle_Risk(t *testing.T) {
 	req := configureRequest()
 
-	cstl, _ := castle.New("secret-string")
+	cstl, err := castle.New("secret-string")
+	require.NoError(t, err)
 
 	executed := false
 
@@ -211,11 +218,12 @@ func TestCastle_Risk(t *testing.T) {
 		assert.Equal(t, password, "secret-string")
 		assert.True(t, ok)
 
-		json.NewDecoder(r.Body).Decode(reqData)
+		err = json.NewDecoder(r.Body).Decode(reqData)
+		require.NoError(t, err)
 
 		assert.Equal(t, castle.EventTypeLogin, reqData.Type)
 		assert.Equal(t, castle.EventStatusSucceeded, reqData.Status)
-		assert.Equal(t, "user-id", reqData.User.Id)
+		assert.Equal(t, "user-id", reqData.User.ID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.User.Traits)
 		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
@@ -225,18 +233,19 @@ func TestCastle_Risk(t *testing.T) {
 
 	castle.RiskEndpoint = ts.URL
 
-	cstl.Risk(
+	_, err = cstl.Risk(
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
 	)
+	require.NoError(t, err)
 
 	assert.True(t, executed)
 }
@@ -244,11 +253,13 @@ func TestCastle_Risk(t *testing.T) {
 func TestCastle_SendRiskCall(t *testing.T) {
 	req := configureRequest()
 
-	cstl, _ := castle.New("secret-string")
+	cstl, err := castle.New("secret-string")
+	require.NoError(t, err)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"error": "this is an error"}`))
+		_, err := w.Write([]byte(`{"error": "this is an error"}`))
+		require.NoError(t, err)
 	}))
 
 	castle.RiskEndpoint = ts.URL
@@ -260,7 +271,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -283,7 +294,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -294,7 +305,8 @@ func TestCastle_SendRiskCall(t *testing.T) {
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
+		_, err := w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
+		require.NoError(t, err)
 	}))
 
 	castle.RiskEndpoint = ts.URL
@@ -306,7 +318,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -318,7 +330,8 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"policy": { "action": "allow"}}`))
+		_, err := w.Write([]byte(`{"policy": { "action": "allow"}}`))
+		require.NoError(t, err)
 	}))
 
 	castle.RiskEndpoint = ts.URL
@@ -330,7 +343,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -342,7 +355,8 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"policy": { "action": "challenge"}}`))
+		_, err := w.Write([]byte(`{"policy": { "action": "challenge"}}`))
+		require.NoError(t, err)
 	}))
 
 	castle.RiskEndpoint = ts.URL
@@ -354,7 +368,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
@@ -366,7 +380,8 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"policy": { "action": "deny"}}`))
+		_, err := w.Write([]byte(`{"policy": { "action": "deny"}}`))
+		require.NoError(t, err)
 	}))
 
 	castle.RiskEndpoint = ts.URL
@@ -378,7 +393,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			EventStatus: castle.EventStatusSucceeded,
 		},
 		castle.User{
-			Id:     "user-id",
+			ID:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},

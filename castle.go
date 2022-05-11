@@ -136,7 +136,7 @@ func getRequestToken(r *http.Request) string {
 }
 
 type User struct {
-	Id           string            `json:"id"`
+	ID           string            `json:"id"`
 	Email        string            `json:"email"`
 	Phone        string            `json:"phone"`
 	Name         string            `json:"name"`
@@ -159,8 +159,8 @@ type castleAPIResponse struct {
 	Risk    string `json:"risk"`
 	Policy  struct {
 		Name       string `json:"name"`
-		Id         string `json:"id"`
-		RevisionId string `json:"revision_id"`
+		ID         string `json:"id"`
+		RevisionID string `json:"revision_id"`
 		Action     string `json:"action"`
 	} `json:"policy"`
 	Device struct {
@@ -185,7 +185,10 @@ func (c *Castle) Filter(context *Context, event Event, user User, properties map
 // SendFilterCall is a plumbing method constructing the HTTP req/res and interpreting results
 func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(e)
+	err := json.NewEncoder(b).Encode(e)
+	if err != nil {
+		return err
+	}
 
 	req, err := http.NewRequest(http.MethodPost, FilterEndpoint, b)
 	if err != nil {
@@ -208,7 +211,10 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 	resp := &castleAPIResponse{}
 
-	json.NewDecoder(res.Body).Decode(resp)
+	err = json.NewDecoder(res.Body).Decode(resp)
+	if err != nil {
+		return err
+	}
 
 	if resp.Type != "" {
 		// we have an api error
@@ -238,7 +244,12 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 
 // Risk sends a risk request to castle.io
 // see https://reference.castle.io/#operation/risk for details
-func (c *Castle) Risk(context *Context, event Event, user User, properties map[string]string) (AuthenticationRecommendedAction, error) {
+func (c *Castle) Risk(
+	context *Context,
+	event Event,
+	user User,
+	properties map[string]string,
+) (AuthenticationRecommendedAction, error) {
 	e := &castleAPIRequest{
 		Type:         event.EventType,
 		Status:       event.EventStatus,
@@ -253,7 +264,10 @@ func (c *Castle) Risk(context *Context, event Event, user User, properties map[s
 // SendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results
 func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAction, error) {
 	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(e)
+	err := json.NewEncoder(b).Encode(e)
+	if err != nil {
+		return RecommendedActionNone, err
+	}
 
 	req, err := http.NewRequest(http.MethodPost, RiskEndpoint, b)
 	if err != nil {
@@ -276,7 +290,10 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 
 	resp := &castleAPIResponse{}
 
-	json.NewDecoder(res.Body).Decode(resp)
+	err = json.NewDecoder(res.Body).Decode(resp)
+	if err != nil {
+		return RecommendedActionNone, errors.Errorf("unable to decode response body: %v", err)
+	}
 
 	if resp.Type != "" {
 		// we have an api error

@@ -208,6 +208,8 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 	resp := &castleAPIResponse{}
 
+	json.NewDecoder(res.Body).Decode(resp)
+
 	if resp.Type != "" {
 		// we have an api error
 		return errors.New(resp.Type)
@@ -217,8 +219,6 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 		// we have an api error
 		return errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
-
-	json.NewDecoder(res.Body).Decode(resp)
 
 	return err
 }

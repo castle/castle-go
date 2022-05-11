@@ -15,6 +15,11 @@ var FilterEndpoint = "https://api.castle.io/v1/filter"
 // RiskEndpoint defines the risk URL castle.io side
 var RiskEndpoint = "https://api.castle.io/v1/risk"
 
+type Event struct {
+	EventType   EventType
+	EventStatus EventStatus
+}
+
 // EventType is an enum defining types of event castle tracks
 type EventType string
 
@@ -28,14 +33,14 @@ const (
 	EventTypeChallenge            EventType = "$challenge"
 )
 
-// Status is an enum defining the statuses for a given event.
-type Status string
+// EventStatus is an enum defining the statuses for a given event.
+type EventStatus string
 
 // See https://docs.castle.io/docs/events
 const (
-	StatusAttempted Status = "$attempted"
-	StatusSucceeded Status = "$succeeded"
-	StatusFailed    Status = "$failed"
+	EventStatusAttempted EventStatus = "$attempted"
+	EventStatusSucceeded EventStatus = "$succeeded"
+	EventStatusFailed    EventStatus = "$failed"
 )
 
 // AuthenticationRecommendedAction encapsulates the 3 possible responses from auth call (allow, challenge, deny)
@@ -79,7 +84,7 @@ var HeaderAllowList = []string{
 	"Te",
 	"Upgrade-Insecure-Requests",
 	"User-Agent",
-	"X-Castle-Client-Id",
+	"X-Castle-Request-Token",
 }
 
 // NewWithHTTPClient same as New but allows passing of http.Client with custom config
@@ -95,8 +100,9 @@ type Castle struct {
 
 // Context captures data from HTTP request
 type Context struct {
-	IP      string            `json:"ip"`
-	Headers map[string]string `json:"headers"`
+	IP           string            `json:"ip"`
+	Headers      map[string]string `json:"headers"`
+	RequestToken string            `json:"request_token"`
 }
 
 func isHeaderAllowed(header string) bool {
@@ -118,7 +124,14 @@ func ContextFromRequest(r *http.Request) *Context {
 		}
 	}
 
-	return &Context{IP: realip.FromRequest(r), Headers: headers}
+	requestToken := getRequestToken(r)
+
+	return &Context{IP: realip.FromRequest(r), Headers: headers, RequestToken: requestToken}
+}
+
+func getRequestToken(r *http.Request) string {
+	// RequestToken is X-Castle-Request-Token
+	return r.Header.Get("HTTP_X_CASTLE_REQUEST_TOKEN")
 }
 
 type User struct {
@@ -132,7 +145,7 @@ type User struct {
 
 type castleAPIRequest struct {
 	Type         EventType         `json:"type"`
-	Status       Status            `json:"status"`
+	Status       EventStatus       `json:"status"`
 	RequestToken string            `json:"request_token"`
 	User         User              `json:"user"`
 	Context      *Context          `json:"context"`
@@ -156,8 +169,15 @@ type castleAPIResponse struct {
 
 // Filter sends a filter request to castle.io
 // see https://reference.castle.io/#operation/filter for details
-func (c *Castle) Filter(eventType EventType, eventStatus Status, user User, requestToken string, properties map[string]string, context *Context) error {
-	e := &castleAPIRequest{Type: eventType, User: user, Context: context, Properties: properties}
+func (c *Castle) Filter(event Event, user User, properties map[string]string, context *Context) error {
+	e := &castleAPIRequest{
+		Type:         event.EventType,
+		Status:       event.EventStatus,
+		RequestToken: context.RequestToken,
+		User:         user,
+		Context:      context,
+		Properties:   properties,
+	}
 	return c.SendFilterCall(e)
 }
 
@@ -197,14 +217,9 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 		return errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
 
-	return json.NewDecoder(res.Body).Decode(resp)
-}
+	json.NewDecoder(res.Body).Decode(resp)
 
-// Risk sends a risk request to castle.io
-// see https://reference.castle.io/#operation/risk for details
-func (c *Castle) Risk(eventType EventType, eventStatus Status, user User, requestToken string, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
-	e := &castleAPIRequest{Type: eventType, Status: eventStatus, User: user, RequestToken: requestToken, Context: context, Properties: properties}
-	return c.SendRiskCall(e)
+	return err
 }
 
 func authenticationRecommendedActionFromString(action string) AuthenticationRecommendedAction {
@@ -218,6 +233,20 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 	default:
 		return RecommendedActionNone
 	}
+}
+
+// Risk sends a risk request to castle.io
+// see https://reference.castle.io/#operation/risk for details
+func (c *Castle) Risk(event Event, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
+	e := &castleAPIRequest{
+		Type:         event.EventType,
+		Status:       event.EventStatus,
+		RequestToken: context.RequestToken,
+		User:         user,
+		Context:      context,
+		Properties:   properties,
+	}
+	return c.SendRiskCall(e)
 }
 
 // SendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results

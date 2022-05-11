@@ -36,16 +36,15 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventType:   castle.EventTypeLogin,
 		EventStatus: castle.EventStatusSucceeded,
 	}
-	ctx := castle.ContextFromRequest(req)
 
 	err := cstl.Filter(
+		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
 			Id:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		ctx,
 	)
 
 	assert.Error(t, err)
@@ -61,16 +60,15 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventType:   castle.EventTypeLogin,
 		EventStatus: castle.EventStatusSucceeded,
 	}
-	ctx = castle.ContextFromRequest(req)
 
 	err = cstl.Filter(
+		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
 			Id:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		ctx,
 	)
 
 	assert.Error(t, err)
@@ -86,16 +84,15 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventType:   castle.EventTypeLogin,
 		EventStatus: castle.EventStatusSucceeded,
 	}
-	ctx = castle.ContextFromRequest(req)
 
 	err = cstl.Filter(
+		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
 			Id:     "user-id",
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		ctx,
 	)
 
 	assert.NoError(t, err)
@@ -141,6 +138,7 @@ func TestCastle_Filter(t *testing.T) {
 	castle.FilterEndpoint = ts.URL
 
 	cstl.Filter(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -150,7 +148,6 @@ func TestCastle_Filter(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -229,6 +226,7 @@ func TestCastle_Risk(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -238,7 +236,6 @@ func TestCastle_Risk(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.True(t, executed)
@@ -257,6 +254,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err := cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -266,7 +264,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
@@ -280,6 +277,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -289,7 +287,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
@@ -303,6 +300,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -312,7 +310,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.Error(t, err)
@@ -327,6 +324,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -336,7 +334,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
@@ -351,6 +348,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -360,7 +358,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)
@@ -375,6 +372,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
 			EventStatus: castle.EventStatusSucceeded,
@@ -384,7 +382,6 @@ func TestCastle_SendRiskCall(t *testing.T) {
 			Traits: map[string]string{"trait1": "traitValue1"},
 		},
 		map[string]string{"prop1": "propValue1"},
-		castle.ContextFromRequest(req),
 	)
 
 	assert.NoError(t, err)

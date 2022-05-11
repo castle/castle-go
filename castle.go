@@ -169,7 +169,7 @@ type castleAPIResponse struct {
 
 // Filter sends a filter request to castle.io
 // see https://reference.castle.io/#operation/filter for details
-func (c *Castle) Filter(event Event, user User, properties map[string]string, context *Context) error {
+func (c *Castle) Filter(context *Context, event Event, user User, properties map[string]string) error {
 	e := &castleAPIRequest{
 		Type:         event.EventType,
 		Status:       event.EventStatus,
@@ -237,7 +237,7 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 
 // Risk sends a risk request to castle.io
 // see https://reference.castle.io/#operation/risk for details
-func (c *Castle) Risk(event Event, user User, properties map[string]string, context *Context) (AuthenticationRecommendedAction, error) {
+func (c *Castle) Risk(context *Context, event Event, user User, properties map[string]string) (AuthenticationRecommendedAction, error) {
 	e := &castleAPIRequest{
 		Type:         event.EventType,
 		Status:       event.EventStatus,

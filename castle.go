@@ -41,6 +41,7 @@ const (
 	EventStatusAttempted EventStatus = "$attempted"
 	EventStatusSucceeded EventStatus = "$succeeded"
 	EventStatusFailed    EventStatus = "$failed"
+	EventStatusRequested EventStatus = "$requested"
 )
 
 // AuthenticationRecommendedAction encapsulates the 3 possible responses from auth call (allow, challenge, deny)

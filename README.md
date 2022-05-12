@@ -7,7 +7,7 @@ castle-go is a Go library wrapping the https://castle.io API.
 ## Install
 
 ```
-go get github.com/castle/castle-go
+go get github.com/utilitywarehouse/castle-go
 ```
 
 ## Usage
@@ -60,9 +60,10 @@ decision, err := castle.Authenticate(
 package main
 
 import (
-  "net/http"
   "log"
-  "github.com/castle/castle-go/castle"
+  "net/http"
+
+  "github.com/utilitywarehouse/castle-go"
 )
 
 func main() {

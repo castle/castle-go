@@ -73,7 +73,7 @@ issues:
   exclude-rules:
     - linters:
         - lll
-      source: "github.com/castle/castle-go"
+      source: "github.com/utilitywarehouse/castle-go"
   exclude:
     # errcheck: Almost all programs ignore errors on these functions and in most cases it's ok
     - Error return value of

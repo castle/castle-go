@@ -157,7 +157,7 @@ type castleAPIRequest struct {
 type castleAPIResponse struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
-	Risk    string `json:"risk"`
+	Risk    uint   `json:"risk"`
 	Policy  struct {
 		Name       string `json:"name"`
 		ID         string `json:"id"`

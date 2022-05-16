@@ -3,6 +3,7 @@ package castle
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -197,6 +198,8 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 	req.SetBasicAuth("", c.apiSecret)
 	req.Header.Set("content-type", "application/json")
+
+	log.Printf("request: %v", req)
 
 	res, err := c.client.Do(req)
 	if err != nil {

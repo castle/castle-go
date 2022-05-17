@@ -287,15 +287,17 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
-		return RecommendedActionNone, errors.Errorf("expected 201 status but got %s", res.Status)
-	}
-
 	resp := &castleAPIResponse{}
 
 	err = json.NewDecoder(res.Body).Decode(resp)
 	if err != nil {
 		return RecommendedActionNone, errors.Errorf("unable to decode response body: %v", err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		log.Printf("api-msg: %v", resp.Message)
+		log.Printf("api-type: %v", resp.Type)
+		return RecommendedActionNone, errors.Errorf("expected 201 status but got %s", res.Status)
 	}
 
 	if resp.Type != "" {

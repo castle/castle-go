@@ -3,7 +3,6 @@ package castle
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -199,8 +198,6 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 	req.SetBasicAuth("", c.apiSecret)
 	req.Header.Set("content-type", "application/json")
 
-	log.Printf("request: %v", req)
-
 	res, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -295,8 +292,6 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 	}
 
 	if res.StatusCode != http.StatusCreated {
-		log.Printf("api-msg: %v", resp.Message)
-		log.Printf("api-type: %v", resp.Type)
 		return RecommendedActionNone, errors.Errorf("expected 201 status but got %s", res.Status)
 	}
 

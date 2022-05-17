@@ -138,11 +138,11 @@ func getRequestToken(r *http.Request) string {
 
 type User struct {
 	ID           string            `json:"id"`
-	Email        string            `json:"email"`
-	Phone        string            `json:"phone"`
-	Name         string            `json:"name"`
-	RegisteredAt string            `json:"registered_at"`
-	Traits       map[string]string `json:"traits"`
+	Email        string            `json:"email,omitempty"`
+	Phone        string            `json:"phone,omitempty"`
+	Name         string            `json:"name,omitempty"`
+	RegisteredAt string            `json:"registered_at,omitempty"`
+	Traits       map[string]string `json:"traits,omitempty"`
 }
 
 type castleAPIRequest struct {

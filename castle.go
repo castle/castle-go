@@ -310,7 +310,3 @@ func (c *Castle) sendRiskCall(ctx context.Context, e *castleAPIRequest) (Recomme
 
 	return recommendedActionFromString(resp.Policy.Action), nil
 }
-
-// WebhookBody encapsulates body of webhook notificationc coming from castle.io
-// see https://castle.io/docs/webhooks
-type WebhookBody struct{}

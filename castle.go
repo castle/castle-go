@@ -2,6 +2,7 @@ package castle
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -190,7 +191,7 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, FilterEndpoint, b)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, FilterEndpoint, b)
 	if err != nil {
 		return err
 	}
@@ -203,7 +204,7 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 		return err
 	}
 
-	defer res.Body.Close()
+	defer res.Body.Close() // nolint: gosec
 
 	if expected, got := http.StatusCreated, res.StatusCode; expected != got {
 		return errors.Errorf("expected %d status but got %d", expected, got)
@@ -269,7 +270,7 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 		return RecommendedActionNone, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, RiskEndpoint, b)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, RiskEndpoint, b)
 	if err != nil {
 		return RecommendedActionNone, err
 	}
@@ -282,7 +283,7 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 		return RecommendedActionNone, err
 	}
 
-	defer res.Body.Close()
+	defer res.Body.Close() // nolint: gosec
 
 	resp := &castleAPIResponse{}
 

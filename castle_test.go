@@ -1,6 +1,7 @@
 package castle_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,7 @@ func configureRequest() *http.Request {
 }
 
 func TestCastle_SendFilterCall(t *testing.T) {
+	ctx := context.Background()
 	req := configureRequest()
 
 	cstl, err := castle.New("secret-string")
@@ -41,7 +43,8 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventStatus: castle.EventStatusSucceeded,
 	}
 
-	err = cstl.Filter(
+	res, err := cstl.Filter(
+		ctx,
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
@@ -52,6 +55,7 @@ func TestCastle_SendFilterCall(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	fs = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -65,7 +69,8 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventStatus: castle.EventStatusSucceeded,
 	}
 
-	err = cstl.Filter(
+	res, err = cstl.Filter(
+		ctx,
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
@@ -76,11 +81,12 @@ func TestCastle_SendFilterCall(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	fs = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(201)
-		_, err := w.Write([]byte(`{"policy": {"name": "name"}}`))
+		_, err := w.Write([]byte(`{"policy": {"action": "allow"}}`))
 		require.NoError(t, err)
 	}))
 
@@ -91,7 +97,8 @@ func TestCastle_SendFilterCall(t *testing.T) {
 		EventStatus: castle.EventStatusSucceeded,
 	}
 
-	err = cstl.Filter(
+	res, err = cstl.Filter(
+		ctx,
 		castle.ContextFromRequest(req),
 		evt,
 		castle.User{
@@ -102,9 +109,11 @@ func TestCastle_SendFilterCall(t *testing.T) {
 	)
 
 	assert.NoError(t, err)
+	assert.Equal(t, castle.RecommendedActionAllow, res)
 }
 
 func TestCastle_Filter(t *testing.T) {
+	ctx := context.Background()
 	req := configureRequest()
 
 	cstl, err := castle.New("secret-string")
@@ -150,7 +159,8 @@ func TestCastle_Filter(t *testing.T) {
 
 	castle.FilterEndpoint = ts.URL
 
-	err = cstl.Filter(
+	res, err := cstl.Filter(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -163,6 +173,7 @@ func TestCastle_Filter(t *testing.T) {
 		map[string]string{"prop1": "propValue1"},
 	)
 	require.NoError(t, err)
+	assert.Equal(t, castle.RecommendedActionNone, res)
 
 	assert.True(t, executed)
 }
@@ -201,6 +212,7 @@ func TestContextFromRequest(t *testing.T) {
 }
 
 func TestCastle_Risk(t *testing.T) {
+	ctx := context.Background()
 	req := configureRequest()
 
 	cstl, err := castle.New("secret-string")
@@ -247,6 +259,7 @@ func TestCastle_Risk(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	_, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -264,6 +277,7 @@ func TestCastle_Risk(t *testing.T) {
 }
 
 func TestCastle_SendRiskCall(t *testing.T) {
+	ctx := context.Background()
 	req := configureRequest()
 
 	cstl, err := castle.New("secret-string")
@@ -278,6 +292,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err := cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -301,6 +316,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -325,6 +341,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -350,6 +367,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -375,6 +393,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,
@@ -400,6 +419,7 @@ func TestCastle_SendRiskCall(t *testing.T) {
 	castle.RiskEndpoint = ts.URL
 
 	res, err = cstl.Risk(
+		ctx,
 		castle.ContextFromRequest(req),
 		castle.Event{
 			EventType:   castle.EventTypeLogin,

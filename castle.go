@@ -45,15 +45,15 @@ const (
 	EventStatusRequested EventStatus = "$requested"
 )
 
-// AuthenticationRecommendedAction encapsulates the 3 possible responses from auth call (allow, challenge, deny)
-type AuthenticationRecommendedAction string
+// RecommendedAction encapsulates the 3 possible responses from auth call (allow, challenge, deny)
+type RecommendedAction string
 
 // See https://castle.io/docs/authentication
 const (
-	RecommendedActionNone      AuthenticationRecommendedAction = ""
-	RecommendedActionAllow     AuthenticationRecommendedAction = "allow"
-	RecommendedActionChallenge AuthenticationRecommendedAction = "challenge"
-	RecommendedActionDeny      AuthenticationRecommendedAction = "deny"
+	RecommendedActionNone      RecommendedAction = ""
+	RecommendedActionAllow     RecommendedAction = "allow"
+	RecommendedActionChallenge RecommendedAction = "challenge"
+	RecommendedActionDeny      RecommendedAction = "deny"
 )
 
 // New creates a new castle client
@@ -171,29 +171,29 @@ type castleAPIResponse struct {
 
 // Filter sends a filter request to castle.io
 // see https://reference.castle.io/#operation/filter for details
-func (c *Castle) Filter(context *Context, event Event, user User, properties map[string]string) error {
+func (c *Castle) Filter(ctx context.Context, castleCtx *Context, event Event, user User, properties map[string]string) (RecommendedAction, error) {
 	e := &castleAPIRequest{
 		Type:         event.EventType,
 		Status:       event.EventStatus,
-		RequestToken: context.RequestToken,
+		RequestToken: castleCtx.RequestToken,
 		User:         user,
-		Context:      context,
+		Context:      castleCtx,
 		Properties:   properties,
 	}
-	return c.SendFilterCall(e)
+	return c.SendFilterCall(ctx, e)
 }
 
 // SendFilterCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
+func (c *Castle) SendFilterCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(e)
 	if err != nil {
-		return err
+		return RecommendedActionNone, err
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, FilterEndpoint, b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, FilterEndpoint, b)
 	if err != nil {
-		return err
+		return RecommendedActionNone, err
 	}
 
 	req.SetBasicAuth("", c.apiSecret)
@@ -201,36 +201,33 @@ func (c *Castle) SendFilterCall(e *castleAPIRequest) error {
 
 	res, err := c.client.Do(req)
 	if err != nil {
-		return err
+		return RecommendedActionNone, err
 	}
-
 	defer res.Body.Close() // nolint: gosec
 
 	if expected, got := http.StatusCreated, res.StatusCode; expected != got {
-		return errors.Errorf("expected %d status but got %d", expected, got)
+		return RecommendedActionNone, errors.Errorf("expected %d status but got %d", expected, got)
 	}
 
 	resp := &castleAPIResponse{}
-
-	err = json.NewDecoder(res.Body).Decode(resp)
-	if err != nil {
-		return err
+	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
+		return RecommendedActionNone, err
 	}
 
 	if resp.Type != "" {
 		// we have an api error
-		return errors.New(resp.Type)
+		return RecommendedActionNone, errors.New(resp.Type)
 	}
 
 	if resp.Message != "" {
 		// we have an api error
-		return errors.Errorf("%s: %s", resp.Type, resp.Message)
+		return RecommendedActionNone, errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
 
-	return err
+	return recommendedActionFromString(resp.Policy.Action), nil
 }
 
-func authenticationRecommendedActionFromString(action string) AuthenticationRecommendedAction {
+func recommendedActionFromString(action string) RecommendedAction {
 	switch action {
 	case "allow":
 		return RecommendedActionAllow
@@ -246,31 +243,32 @@ func authenticationRecommendedActionFromString(action string) AuthenticationReco
 // Risk sends a risk request to castle.io
 // see https://reference.castle.io/#operation/risk for details
 func (c *Castle) Risk(
-	context *Context,
+	ctx context.Context,
+	castleCtx *Context,
 	event Event,
 	user User,
 	properties map[string]string,
-) (AuthenticationRecommendedAction, error) {
+) (RecommendedAction, error) {
 	e := &castleAPIRequest{
 		Type:         event.EventType,
 		Status:       event.EventStatus,
-		RequestToken: context.RequestToken,
+		RequestToken: castleCtx.RequestToken,
 		User:         user,
-		Context:      context,
+		Context:      castleCtx,
 		Properties:   properties,
 	}
-	return c.SendRiskCall(e)
+	return c.SendRiskCall(ctx, e)
 }
 
 // SendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAction, error) {
+func (c *Castle) SendRiskCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(e)
 	if err != nil {
 		return RecommendedActionNone, err
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, RiskEndpoint, b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, RiskEndpoint, b)
 	if err != nil {
 		return RecommendedActionNone, err
 	}
@@ -282,13 +280,10 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 	if err != nil {
 		return RecommendedActionNone, err
 	}
-
 	defer res.Body.Close() // nolint: gosec
 
 	resp := &castleAPIResponse{}
-
-	err = json.NewDecoder(res.Body).Decode(resp)
-	if err != nil {
+	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
 		return RecommendedActionNone, errors.Errorf("unable to decode response body: %v", err)
 	}
 
@@ -306,7 +301,7 @@ func (c *Castle) SendRiskCall(e *castleAPIRequest) (AuthenticationRecommendedAct
 		return RecommendedActionNone, errors.Errorf("%s: %s", resp.Type, resp.Message)
 	}
 
-	return authenticationRecommendedActionFromString(resp.Policy.Action), err
+	return recommendedActionFromString(resp.Policy.Action), nil
 }
 
 // WebhookBody encapsulates body of webhook notificationc coming from castle.io

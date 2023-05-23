@@ -190,11 +190,11 @@ func (c *Castle) Filter(
 		Context:      req.Context,
 		Properties:   req.Properties,
 	}
-	return c.SendFilterCall(ctx, e)
+	return c.sendFilterCall(ctx, e)
 }
 
-// SendFilterCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendFilterCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
+// sendFilterCall is a plumbing method constructing the HTTP req/res and interpreting results
+func (c *Castle) sendFilterCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(e)
 	if err != nil {
@@ -264,11 +264,11 @@ func (c *Castle) Risk(
 		Context:      req.Context,
 		Properties:   req.Properties,
 	}
-	return c.SendRiskCall(ctx, e)
+	return c.sendRiskCall(ctx, e)
 }
 
-// SendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results
-func (c *Castle) SendRiskCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
+// sendRiskCall is a plumbing method constructing the HTTP req/res and interpreting results
+func (c *Castle) sendRiskCall(ctx context.Context, e *castleAPIRequest) (RecommendedAction, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(e)
 	if err != nil {

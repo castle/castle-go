@@ -136,6 +136,13 @@ func getRequestToken(r *http.Request) string {
 	return r.Header.Get("HTTP_X_CASTLE_REQUEST_TOKEN")
 }
 
+type Request struct {
+	Context    *Context
+	Event      Event
+	User       User
+	Properties map[string]string
+}
+
 type User struct {
 	ID           string            `json:"id"`
 	Email        string            `json:"email,omitempty"`
@@ -171,14 +178,17 @@ type castleAPIResponse struct {
 
 // Filter sends a filter request to castle.io
 // see https://reference.castle.io/#operation/filter for details
-func (c *Castle) Filter(ctx context.Context, castleCtx *Context, event Event, user User, properties map[string]string) (RecommendedAction, error) {
+func (c *Castle) Filter(
+	ctx context.Context,
+	req *Request,
+) (RecommendedAction, error) {
 	e := &castleAPIRequest{
-		Type:         event.EventType,
-		Status:       event.EventStatus,
-		RequestToken: castleCtx.RequestToken,
-		User:         user,
-		Context:      castleCtx,
-		Properties:   properties,
+		Type:         req.Event.EventType,
+		Status:       req.Event.EventStatus,
+		RequestToken: req.Context.RequestToken,
+		User:         req.User,
+		Context:      req.Context,
+		Properties:   req.Properties,
 	}
 	return c.SendFilterCall(ctx, e)
 }
@@ -244,18 +254,15 @@ func recommendedActionFromString(action string) RecommendedAction {
 // see https://reference.castle.io/#operation/risk for details
 func (c *Castle) Risk(
 	ctx context.Context,
-	castleCtx *Context,
-	event Event,
-	user User,
-	properties map[string]string,
+	req *Request,
 ) (RecommendedAction, error) {
 	e := &castleAPIRequest{
-		Type:         event.EventType,
-		Status:       event.EventStatus,
-		RequestToken: castleCtx.RequestToken,
-		User:         user,
-		Context:      castleCtx,
-		Properties:   properties,
+		Type:         req.Event.EventType,
+		Status:       req.Event.EventStatus,
+		RequestToken: req.Context.RequestToken,
+		User:         req.User,
+		Context:      req.Context,
+		Properties:   req.Properties,
 	}
 	return c.SendRiskCall(ctx, e)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/utilitywarehouse/castle-go"
 )
 
-func configureRequest() *http.Request {
+func configureHTTPRequest() *http.Request {
 	req := httptest.NewRequest("GET", "/", nil)
 
 	req.Header.Set("X-FORWARDED-FOR", "6.6.6.6, 3.3.3.3, 8.8.8.8")
@@ -23,98 +23,75 @@ func configureRequest() *http.Request {
 	return req
 }
 
+func configureRequest(httpReq *http.Request) *castle.Request {
+	return &castle.Request{
+		Context: castle.ContextFromRequest(httpReq),
+		Event: castle.Event{
+			EventType:   castle.EventTypeLogin,
+			EventStatus: castle.EventStatusSucceeded,
+		},
+		User: castle.User{
+			ID:     "user-id",
+			Traits: map[string]string{"trait1": "traitValue1"},
+		},
+		Properties: map[string]string{"prop1": "propValue1"},
+	}
+}
+
 func TestCastle_SendFilterCall(t *testing.T) {
 	ctx := context.Background()
-	req := configureRequest()
+	req := configureRequest(configureHTTPRequest())
 
 	cstl, err := castle.New("secret-string")
 	require.NoError(t, err)
 
-	fs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		_, err := w.Write([]byte(`{"error": "this is an error"}`))
-		require.NoError(t, err)
-	}))
+	t.Run("response error", func(t *testing.T) {
+		fs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			_, err := w.Write([]byte(`{"error": "this is an error"}`))
+			require.NoError(t, err)
+		}))
 
-	castle.FilterEndpoint = fs.URL
+		castle.FilterEndpoint = fs.URL
 
-	evt := castle.Event{
-		EventType:   castle.EventTypeLogin,
-		EventStatus: castle.EventStatusSucceeded,
-	}
+		res, err := cstl.Filter(ctx, req)
+		assert.Error(t, err)
+		assert.Equal(t, castle.RecommendedActionNone, res)
+	})
 
-	res, err := cstl.Filter(
-		ctx,
-		castle.ContextFromRequest(req),
-		evt,
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+	t.Run("bad client request response", func(t *testing.T) {
+		fs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(400)
+		}))
 
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
+		castle.FilterEndpoint = fs.URL
 
-	fs = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(400)
-	}))
+		res, err := cstl.Filter(ctx, req)
+		assert.Error(t, err)
+		assert.Equal(t, castle.RecommendedActionNone, res)
+	})
 
-	castle.FilterEndpoint = fs.URL
+	t.Run("allow action response", func(t *testing.T) {
+		fs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(201)
+			_, err := w.Write([]byte(`{"policy": {"action": "allow"}}`))
+			require.NoError(t, err)
+		}))
 
-	evt = castle.Event{
-		EventType:   castle.EventTypeLogin,
-		EventStatus: castle.EventStatusSucceeded,
-	}
+		castle.FilterEndpoint = fs.URL
 
-	res, err = cstl.Filter(
-		ctx,
-		castle.ContextFromRequest(req),
-		evt,
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
-
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
-
-	fs = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(201)
-		_, err := w.Write([]byte(`{"policy": {"action": "allow"}}`))
-		require.NoError(t, err)
-	}))
-
-	castle.FilterEndpoint = fs.URL
-
-	evt = castle.Event{
-		EventType:   castle.EventTypeLogin,
-		EventStatus: castle.EventStatusSucceeded,
-	}
-
-	res, err = cstl.Filter(
-		ctx,
-		castle.ContextFromRequest(req),
-		evt,
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionAllow, res)
+		res, err := cstl.Filter(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, castle.RecommendedActionAllow, res)
+	})
 }
 
 func TestCastle_Filter(t *testing.T) {
 	ctx := context.Background()
-	req := configureRequest()
+	httpReq := configureHTTPRequest()
+	req := configureRequest(httpReq)
 
 	cstl, err := castle.New("secret-string")
 	require.NoError(t, err)
@@ -152,26 +129,14 @@ func TestCastle_Filter(t *testing.T) {
 		assert.Equal(t, "user-id", reqData.User.ID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.User.Traits)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(httpReq), reqData.Context)
 
 		executed = true
 	}))
 
 	castle.FilterEndpoint = ts.URL
 
-	res, err := cstl.Filter(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+	res, err := cstl.Filter(ctx, req)
 	require.NoError(t, err)
 	assert.Equal(t, castle.RecommendedActionNone, res)
 
@@ -213,7 +178,8 @@ func TestContextFromRequest(t *testing.T) {
 
 func TestCastle_Risk(t *testing.T) {
 	ctx := context.Background()
-	req := configureRequest()
+	httpReq := configureHTTPRequest()
+	req := configureRequest(httpReq)
 
 	cstl, err := castle.New("secret-string")
 	require.NoError(t, err)
@@ -251,26 +217,14 @@ func TestCastle_Risk(t *testing.T) {
 		assert.Equal(t, "user-id", reqData.User.ID)
 		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
 		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.User.Traits)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
+		assert.Equal(t, castle.ContextFromRequest(httpReq), reqData.Context)
 
 		executed = true
 	}))
 
 	castle.RiskEndpoint = ts.URL
 
-	_, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+	_, err = cstl.Risk(ctx, req)
 	require.NoError(t, err)
 
 	assert.True(t, executed)
@@ -278,160 +232,100 @@ func TestCastle_Risk(t *testing.T) {
 
 func TestCastle_SendRiskCall(t *testing.T) {
 	ctx := context.Background()
-	req := configureRequest()
+	req := configureRequest(configureHTTPRequest())
 
 	cstl, err := castle.New("secret-string")
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		_, err := w.Write([]byte(`{"error": "this is an error"}`))
-		require.NoError(t, err)
-	}))
+	t.Run("response error", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			_, err := w.Write([]byte(`{"error": "this is an error"}`))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(ts.Close)
 
-	castle.RiskEndpoint = ts.URL
+		castle.RiskEndpoint = ts.URL
 
-	res, err := cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+		res, err := cstl.Risk(ctx, req)
+		assert.Error(t, err)
+		assert.Equal(t, castle.RecommendedActionNone, res)
+	})
 
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
+	t.Run("bad client request response", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(400)
+		}))
+		t.Cleanup(ts.Close)
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(400)
-	}))
+		castle.RiskEndpoint = ts.URL
 
-	castle.RiskEndpoint = ts.URL
+		res, err := cstl.Risk(ctx, req)
+		assert.Error(t, err)
+		assert.Equal(t, castle.RecommendedActionNone, res)
+	})
 
-	res, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+	t.Run("invalid parameter response", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			_, err := w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(ts.Close)
 
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
+		castle.RiskEndpoint = ts.URL
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		_, err := w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
-		require.NoError(t, err)
-	}))
+		res, err := cstl.Risk(ctx, req)
+		assert.Error(t, err)
+		assert.Equal(t, castle.RecommendedActionNone, res)
+	})
 
-	castle.RiskEndpoint = ts.URL
+	t.Run("allow action response", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"policy": { "action": "allow"}}`))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(ts.Close)
 
-	res, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+		castle.RiskEndpoint = ts.URL
 
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
+		res, err := cstl.Risk(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, castle.RecommendedActionAllow, res)
+	})
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_, err := w.Write([]byte(`{"policy": { "action": "allow"}}`))
-		require.NoError(t, err)
-	}))
+	t.Run("challenge action response", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"policy": { "action": "challenge"}}`))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(ts.Close)
 
-	castle.RiskEndpoint = ts.URL
+		castle.RiskEndpoint = ts.URL
 
-	res, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
+		res, err := cstl.Risk(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, castle.RecommendedActionChallenge, res)
+	})
 
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionAllow, res)
+	t.Run("deny action response", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"policy": { "action": "deny"}}`))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(ts.Close)
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_, err := w.Write([]byte(`{"policy": { "action": "challenge"}}`))
-		require.NoError(t, err)
-	}))
+		castle.RiskEndpoint = ts.URL
 
-	castle.RiskEndpoint = ts.URL
-
-	res, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionChallenge, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_, err := w.Write([]byte(`{"policy": { "action": "deny"}}`))
-		require.NoError(t, err)
-	}))
-
-	castle.RiskEndpoint = ts.URL
-
-	res, err = cstl.Risk(
-		ctx,
-		castle.ContextFromRequest(req),
-		castle.Event{
-			EventType:   castle.EventTypeLogin,
-			EventStatus: castle.EventStatusSucceeded,
-		},
-		castle.User{
-			ID:     "user-id",
-			Traits: map[string]string{"trait1": "traitValue1"},
-		},
-		map[string]string{"prop1": "propValue1"},
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionDeny, res)
+		res, err := cstl.Risk(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, castle.RecommendedActionDeny, res)
+	})
 }

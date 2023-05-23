@@ -1,0 +1,45 @@
+rules:
+  # avoid deprecated proto package
+  - id: deprecated-proto-package
+    pattern: |
+      import (
+        "github.com/golang/protobuf"
+      )
+    message: "Deprecated protobuf package imported, use google.golang.org/protobuf/proto instead"
+    languages: [go]
+    severity: ERROR
+
+  # avoid deprecated ioutil package
+  - id: deprecated-ioutil-package
+    pattern: |
+      import (
+        "io/ioutil"
+      )
+    message: "Deprecated ioutil package imported, use io or os package instead"
+    languages: [go]
+    severity: ERROR
+
+  # use opentelemetry metrics api
+  - id: opentelemetry-metrics-migration
+    patterns:
+      - pattern-either:
+          - pattern: operational.AddMetrics(...)
+          - pattern: |
+              import "github.com/utilitywarehouse/go-operational/op"
+              ...
+              $ST = op.NewStatus(...). ...
+              ...
+              $ST.AddMetrics(...)
+    message: "Old method of registering metrics. Example https://github.com/utilitywarehouse/uwos-go/blob/main/v1/telemetry/README.md#opentelemetry"
+    languages: [go]
+    severity: ERROR
+
+  # avoid deprecated pao-pkg k8sruntime package
+  - id: deprecated-pao-k8sruntime-package
+    pattern: |
+      import (
+        "github.com/utilitywarehouse/pao-pkg/runtime/k8sruntime"
+      )
+    message: "Deprecated pao-pkg/runtime/k8sruntime package imported, use uwos-go instead"
+    languages: [go]
+    severity: ERROR

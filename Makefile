@@ -17,5 +17,8 @@ lint: install
 mod:
 	go mod tidy
 
+semgrep:
+	semgrep scan --config .semgrep/rules.yaml --config=p/semgrep-go-correctness
+
 test:
 	gotestsum -- -vet=off -race ./...

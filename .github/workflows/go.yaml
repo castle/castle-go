@@ -3,24 +3,8 @@ on:
   push:
 env:
   GOPRIVATE: "github.com/utilitywarehouse/*"
-  GOLANGCI_LINT_VERSION: "v1.45.2"
+  GOLANGCI_LINT_VERSION: "v1.52.2"
 jobs:
-  mod:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure git for private modules
-        run: git config --global url."https://${{ secrets.DEPLOY_GITHUB_USER }}:${{ secrets.DEPLOY_GITHUB_TOKEN }}@github.com".insteadOf "https://github.com"
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-      - name: Tidy modules
-        run: make mod
-      - name: Check for changes
-        run: git add . && git diff --staged --exit-code
   format:
     runs-on: ubuntu-latest
     steps:
@@ -31,6 +15,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Install binaries
+        run: make install
       - name: Format
         run: make format
       - name: Check for changes
@@ -48,7 +34,25 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: Lint
-        run: make lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+  mod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private modules
+        run: git config --global url."https://${{ secrets.DEPLOY_GITHUB_USER }}:${{ secrets.DEPLOY_GITHUB_TOKEN }}@github.com".insteadOf "https://github.com"
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Tidy modules
+        run: go mod tidy
+      - name: Check for changes
+        run: git add . && git diff --staged --exit-code
   test:
     runs-on: ubuntu-latest
     steps:
@@ -61,5 +65,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Install test runner
+        run: go install gotest.tools/gotestsum
       - name: Test
         run: make test

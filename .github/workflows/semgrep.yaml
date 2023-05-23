@@ -11,4 +11,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run
-        run: semgrep ci --config .semgrep/rules.yml --config=p/semgrep-go-correctness --exclude generated
+        run: semgrep ci --config .semgrep/rules.yml --config=p/semgrep-go-correctness

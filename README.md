@@ -1,110 +1,175 @@
 # castle-go
 
-castle-go is a Go library wrapping the https://castle.io API. 
+[![Go Reference](https://pkg.go.dev/badge/github.com/castle/castle-go.svg)](https://pkg.go.dev/github.com/castle/castle-go)
 
-**Note:** This library is currently a prototype. To see fully supported SDKs, please refer to https://docs.castle.io/baseline/
+The official [Castle](https://castle.io) Go SDK for account security and fraud prevention.
 
-## Install
+## Requirements
 
-```
+Go 1.21 or later. Zero external dependencies.
+
+## Installation
+
+```sh
 go get github.com/castle/castle-go
 ```
 
 ## Usage
 
-### Providing own http client
-
 ```go
-castle.NewWithHTTPClient("secret-api-key", &http.Client{Timeout: time.Second * 2})
+import "github.com/castle/castle-go"
 ```
 
-### Tracking properties and traits
+Construct a client with your API secret, then call `Filter` or `Risk`:
 
 ```go
-castle.Track(
-  castle.EventLoginSucceeded,
-  "user-123",
-  map[string]string{"prop1": "propValue1"},
-  map[string]string{"trait1": "traitValue1"},
-  castle.ContextFromRequest(req),
-)
+client, err := castle.NewClient(castle.WithAPISecret("sk_your_api_secret"))
 ```
 
-### Tracking custom events
+### Context extraction
+
+Castle needs the end-user's IP and HTTP headers from each request. The SDK extracts and prepares the context automatically:
 
 ```go
-castle.Track(
-  castle.Event("custom-event"),
-  "user-123",
-  map[string]string{"prop1": "propValue1"},
-  map[string]string{"trait1": "traitValue1"},
-  castle.ContextFromRequest(req),
-)
+castleCtx := client.ContextFromRequest(r)
 ```
 
-### Adaptive authentication
+This resolves the client IP from X-Forwarded-For (with trusted proxy filtering), scrubs sensitive headers (Cookie and Authorization are always redacted), and captures other request metadata needed by the Castle API.
+
+### Filter (pre-authentication)
 
 ```go
-decision, err := castle.Authenticate(
-  castle.EventLoginSucceeded,
-  "md-1",
-  map[string]string{"prop1": "propValue1"},
-  map[string]string{"trait1": "traitValue1"},
-  castle.ContextFromRequest(req),
-)
-```
+resp, err := client.Filter(r.Context(), &castle.FilterRequest{
+    Type:         "$login",
+    Status:       "$attempted",
+    RequestToken: r.FormValue("castle_request_token"),
+    Context:      castleCtx,
+    User:         &castle.User{Email: r.FormValue("email")},
+})
 
-### Example
-
-```go
-package main
-
-import (
-  "net/http"
-  "log"
-  "github.com/castle/castle-go/castle"
-)
-
-func main() {
-
-	cstl, err := castle.New("secret-api-key")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// authenticate user then track with castle
-
-		decision, err := castle.AuthenticateSimple(
-			castle.EventLoginSucceeded,
-			"user-123",
-			castle.ContextFromRequest(r),
-		)
-
-		if err != nil {
-			log.Println(err)
-		}
-
-		if decision == castle.RecommendedActionChallenge {
-			// challenge with MFA and track with castle
-
-			err := cstl.TrackSimple(
-				castle.EventChallengeRequested,
-				"user-123",
-				castle.ContextFromRequest(r),
-			)
-
-			if err != nil {
-				log.Println(err)
-			}
-
-			// trigger off MFA path
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}))
-
+switch resp.Policy.Action {
+case castle.ActionAllow:
+    // Proceed with login
+case castle.ActionDeny:
+    // Block the request
+case castle.ActionChallenge:
+    // Trigger MFA
 }
 ```
+
+### Risk (post-authentication)
+
+```go
+resp, err := client.Risk(r.Context(), &castle.RiskRequest{
+    Type:         "$login",
+    Status:       "$succeeded",
+    RequestToken: r.FormValue("castle_request_token"),
+    Context:      castleCtx,
+    User:         &castle.User{ID: "user-123", Email: r.FormValue("email")},
+})
+```
+
+## Failover
+
+Castle sits in the authentication path. On timeout, network error, or 5xx, the SDK returns a synthetic response instead of an error so your auth flow is never blocked:
+
+| Strategy | Behavior | Use when |
+|----------|----------|----------|
+| `FailoverAllow` (default) | Returns allow | Don't block users during outages |
+| `FailoverDeny` | Returns deny | Strict security requirements |
+| `FailoverChallenge` | Returns challenge | Trigger MFA on uncertainty |
+| `FailoverThrow` | Returns the error | You handle failover yourself |
+
+Failover responses have `resp.Failover == true` and `resp.FailoverReason` set. Client errors (4xx) always return an error and never trigger failover.
+
+## Configuration
+
+```go
+client, err := castle.NewClient(
+    castle.WithAPISecret("sk_..."),
+    castle.WithTimeout(500 * time.Millisecond),
+    castle.WithFailoverStrategy(castle.FailoverAllow),
+
+    // IP resolution
+    castle.WithIPHeaders([]string{"CF-Connecting-IP"}),
+    castle.WithTrustedProxies([]string{"10.0.0.0/8"}),
+    castle.WithTrustedProxyDepth(1),
+    castle.WithTrustProxyChain(false),
+
+    // Header control
+    castle.WithAllowlistedHeaders(castle.DefaultAllowlist),
+    castle.WithDenylistedHeaders([]string{"X-Internal-Token"}),
+
+    // HTTP client
+    castle.WithHTTPClient(customClient),
+    castle.WithBaseURL("https://api.castle.io/v1"),
+    castle.WithDoNotTrack(true),
+    castle.WithLogger(myLogger),
+)
+```
+
+By default, all headers are forwarded (with Cookie and Authorization scrubbed to `true`). Use `WithAllowlistedHeaders(castle.DefaultAllowlist)` to restrict to the [recommended set of 22 headers](https://docs.castle.io).
+
+## Error handling
+
+```go
+resp, err := client.Filter(ctx, req)
+if err != nil {
+    var apiErr *castle.APIError
+    if errors.As(err, &apiErr) {
+        log.Printf("HTTP %d: %s", apiErr.StatusCode, apiErr.Message)
+    }
+
+    if errors.Is(err, castle.ErrUnauthorized) {
+        // Bad API secret
+    }
+    if errors.Is(err, castle.ErrInvalidRequestToken) {
+        // Expired or invalid request token
+    }
+}
+```
+
+All API errors implement `errors.Is` and `errors.As`:
+
+| Status | Sentinel |
+|--------|----------|
+| 400 | `ErrBadRequest` |
+| 401 | `ErrUnauthorized` |
+| 403 | `ErrForbidden` |
+| 404 | `ErrNotFound` |
+| 419 | `ErrUserUnauthorized` |
+| 422 | `ErrInvalidParameters` or `ErrInvalidRequestToken` |
+| 429 | `ErrRateLimit` |
+| 5xx | `ErrInternalServer` (triggers failover) |
+
+## Testing
+
+The SDK is designed for testing without hitting the Castle API:
+
+```go
+// Option 1: point at a local test server
+ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(201)
+    w.Write([]byte(`{"policy":{"action":"allow"}}`))
+}))
+client, _ := castle.NewClient(
+    castle.WithAPISecret("test"),
+    castle.WithBaseURL(ts.URL),
+)
+
+// Option 2: skip all HTTP calls (returns synthetic allow)
+client, _ := castle.NewClient(
+    castle.WithAPISecret("test"),
+    castle.WithDoNotTrack(true),
+)
+```
+
+## Documentation
+
+For the complete API reference, see the [Castle API documentation](https://docs.castle.io).
+
+For Go package documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/castle/castle-go).
+
+## License
+
+MIT

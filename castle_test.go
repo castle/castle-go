@@ -1,428 +1,276 @@
-package castle_test
+package castle
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/castle/castle-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func configureRequest() *http.Request {
-	req := httptest.NewRequest("GET", "/", nil)
+// testServer spins up an httptest server and a client pointed at it. The
+// handler receives every request so tests can assert on method/path/body.
+func testServer(t *testing.T, handler http.HandlerFunc, opts ...Option) *Castle {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
 
-	req.Header.Set("HTTP_X_CASTLE_CLIENT_ID", "__cid_header")
-	req.Header.Set("X-FORWARDED-FOR", "6.6.6.6, 3.3.3.3, 8.8.8.8")
-	req.Header.Set("USER-AGENT", "some-agent")
-
-	return req
+	opts = append([]Option{WithBaseURL(srv.URL)}, opts...)
+	client, err := New("secret", opts...)
+	require.NoError(t, err)
+	return client
 }
 
-func TestCastle_SendTrackCall(t *testing.T) {
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"error": "this is an error"}`))
-	}))
-
-	castle.TrackEndpoint = ts.URL
-
-	err := cstl.Track(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.Error(t, err)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(400)
-	}))
-
-	castle.TrackEndpoint = ts.URL
-
-	err = cstl.Track(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.Error(t, err)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(204)
-	}))
-
-	castle.TrackEndpoint = ts.URL
-
-	err = cstl.Track(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.NoError(t, err)
+func decodeRequest(t *testing.T, r *http.Request) Params {
+	t.Helper()
+	body, err := io.ReadAll(r.Body)
+	require.NoError(t, err)
+	if len(body) == 0 {
+		return nil
+	}
+	var p Params
+	require.NoError(t, json.Unmarshal(body, &p))
+	return p
 }
 
-func TestCastle_Track(t *testing.T) {
-
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	var executed = false
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		type castleTrackRequest struct {
-			Event      castle.Event      `json:"event"`
-			UserID     string            `json:"user_id"`
-			Context    *castle.Context   `json:"context"`
-			Properties map[string]string `json:"properties"`
-			UserTraits map[string]string `json:"user_traits"`
-		}
-
-		reqData := &castleTrackRequest{}
-
-		username, password, ok := r.BasicAuth()
-
-		assert.Empty(t, username)
-		assert.Equal(t, password, "secret-string")
-		assert.True(t, ok)
-
-		json.NewDecoder(r.Body).Decode(reqData)
-
-		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
-		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
-		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.UserTraits)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
-
-		executed = true
-	}))
-
-	castle.TrackEndpoint = ts.URL
-
-	cstl.Track(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.True(t, executed)
-
-}
-
-func TestCastle_TrackSimple(t *testing.T) {
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	var executed = false
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		type castleTrackRequest struct {
-			Event   castle.Event    `json:"event"`
-			UserID  string          `json:"user_id"`
-			Context *castle.Context `json:"context"`
-		}
-
-		reqData := &castleTrackRequest{}
-
-		username, password, ok := r.BasicAuth()
-
-		assert.Empty(t, username)
-		assert.Equal(t, password, "secret-string")
-		assert.True(t, ok)
-
-		json.NewDecoder(r.Body).Decode(reqData)
-
-		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
-		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
-
-		executed = true
-	}))
-
-	castle.TrackEndpoint = ts.URL
-
-	cstl.TrackSimple(
-		castle.EventLoginSucceeded,
-		"user-id",
-		castle.ContextFromRequest(req),
-	)
-
-	assert.True(t, executed)
-}
-
-func TestContextFromRequest(t *testing.T) {
-
-	// grabs ClientID form cookie
-	req := httptest.NewRequest("GET", "/", nil)
-	req.AddCookie(&http.Cookie{
-		Name:  "__cid",
-		Value: "__cid_value",
+func TestNewValidation(t *testing.T) {
+	t.Run("missing secret", func(t *testing.T) {
+		_, err := New("")
+		var cfgErr *ConfigurationError
+		assert.ErrorAs(t, err, &cfgErr)
 	})
 
-	ctx := castle.ContextFromRequest(req)
-	assert.Equal(t, "__cid_value", ctx.ClientID)
+	t.Run("invalid failover strategy", func(t *testing.T) {
+		_, err := New("secret", WithFailoverStrategy("bogus"))
+		var cfgErr *ConfigurationError
+		assert.ErrorAs(t, err, &cfgErr)
+	})
 
-	// prefers header to cookie
-	req.Header.Set("HTTP_X_CASTLE_CLIENT_ID", "__cid_header")
+	t.Run("defaults", func(t *testing.T) {
+		client, err := New("secret")
+		require.NoError(t, err)
+		assert.Equal(t, DefaultBaseURL, client.config.baseURL)
+		assert.Equal(t, DefaultTimeout, client.config.timeout)
+		assert.Equal(t, FailoverAllow, client.config.failoverStrategy)
+	})
+}
 
-	ctx = castle.ContextFromRequest(req)
-	assert.Equal(t, "__cid_header", ctx.ClientID)
+func TestRequestAuthAndContentType(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		assert.True(t, ok)
+		assert.Equal(t, "", user)
+		assert.Equal(t, "secret", pass)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"action":"allow"}`))
+	})
 
-	// grabs IP from request
-	req.Header.Set("X-REAL-IP", "9.9.9.9")
-	ctx = castle.ContextFromRequest(req)
-	assert.Equal(t, "9.9.9.9", ctx.IP)
+	_, err := client.Risk(context.Background(), Params{"event": "$login"})
+	require.NoError(t, err)
+}
 
-	// but prefers X-FORWARDED-FOR
-	req.Header.Set("X-FORWARDED-FOR", "6.6.6.6, 3.3.3.3, 8.8.8.8")
-	ctx = castle.ContextFromRequest(req)
-	assert.Equal(t, "6.6.6.6", ctx.IP)
+func TestRiskSuccessAddsSentAtAndFailoverFields(t *testing.T) {
+	var received Params
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/risk", r.URL.Path)
+		received = decodeRequest(t, r)
+		_, _ = w.Write([]byte(`{"action":"allow","user_id":"u1"}`))
+	})
 
-	// grabs whitelisted headers only
+	res, err := client.Risk(context.Background(), Params{"event": "$login"})
+	require.NoError(t, err)
+	assert.Equal(t, "allow", res["action"])
+	assert.Equal(t, false, res["failover"])
+	assert.Nil(t, res["failover_reason"])
+	assert.Contains(t, received, "sent_at")
+}
 
-	for _, whitelistedHeader := range castle.HeaderAllowList {
-		req.Header.Set(whitelistedHeader, whitelistedHeader)
+func TestRiskPreservesProvidedSentAt(t *testing.T) {
+	var received Params
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		received = decodeRequest(t, r)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	_, err := client.Risk(context.Background(), Params{"event": "$login", "sent_at": "2020-01-01T00:00:00.000Z"})
+	require.NoError(t, err)
+	assert.Equal(t, "2020-01-01T00:00:00.000Z", received["sent_at"])
+}
+
+func TestRiskFailoverOnServerError(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	res, err := client.Risk(context.Background(), Params{"user": Params{"id": "u1"}})
+	require.NoError(t, err)
+	assert.Equal(t, "allow", res["action"])
+	assert.Equal(t, true, res["failover"])
+	assert.Equal(t, "u1", res["user_id"])
+	assert.NotEmpty(t, res["failover_reason"])
+}
+
+func TestRiskFailoverThrow(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}, WithFailoverStrategy(FailoverThrow))
+
+	_, err := client.Risk(context.Background(), Params{"user": Params{"id": "u1"}})
+	var serverErr *InternalServerError
+	assert.ErrorAs(t, err, &serverErr)
+}
+
+func TestFilterFailoverUsesMatchingUserID(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/filter", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}, WithFailoverStrategy(FailoverDeny))
+
+	res, err := client.Filter(context.Background(), Params{"matching_user_id": "m1"})
+	require.NoError(t, err)
+	assert.Equal(t, "deny", res["action"])
+	assert.Equal(t, "m1", res["user_id"])
+}
+
+func TestLogDoesNotFailover(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/log", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	_, err := client.Log(context.Background(), Params{"event": "$login"})
+	var serverErr *InternalServerError
+	assert.ErrorAs(t, err, &serverErr)
+}
+
+func TestDoNotTrack(t *testing.T) {
+	called := false
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}, WithDoNotTrack(true))
+
+	res, err := client.Risk(context.Background(), Params{"user": Params{"id": "u1"}})
+	require.NoError(t, err)
+	assert.Equal(t, "allow", res["action"])
+	assert.Equal(t, true, res["failover"])
+
+	logRes, err := client.Log(context.Background(), Params{"event": "$login"})
+	require.NoError(t, err)
+	assert.Nil(t, logRes)
+	assert.False(t, called)
+}
+
+func TestErrorMapping(t *testing.T) {
+	cases := []struct {
+		status int
+		body   string
+		check  func(error) bool
+	}{
+		{400, `{"message":"bad"}`, func(e error) bool { var t *BadRequestError; return errors.As(e, &t) }},
+		{401, ``, func(e error) bool { var t *UnauthorizedError; return errors.As(e, &t) }},
+		{403, ``, func(e error) bool { var t *ForbiddenError; return errors.As(e, &t) }},
+		{404, ``, func(e error) bool { var t *NotFoundError; return errors.As(e, &t) }},
+		{419, ``, func(e error) bool { var t *UserUnauthorizedError; return errors.As(e, &t) }},
+		{422, `{"type":"invalid_request_token"}`, func(e error) bool { var t *InvalidRequestTokenError; return errors.As(e, &t) }},
+		{422, `{"type":"other","message":"x"}`, func(e error) bool { var t *InvalidParametersError; return errors.As(e, &t) }},
+		{429, ``, func(e error) bool { var t *RateLimitError; return errors.As(e, &t) }},
 	}
 
-	ctx = castle.ContextFromRequest(req)
-	for _, whitelistedHeader := range castle.HeaderAllowList {
-		assert.Contains(t, ctx.Headers, http.CanonicalHeaderKey(whitelistedHeader))
+	for _, tc := range cases {
+		tc := tc
+		client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.status)
+			if tc.body != "" {
+				_, _ = w.Write([]byte(tc.body))
+			}
+		})
+		_, err := client.GetAllLists(context.Background())
+		require.Error(t, err)
+		assert.Truef(t, tc.check(err), "status %d produced %T", tc.status, err)
+	}
+}
+
+func TestListsEndpoints(t *testing.T) {
+	type call struct{ method, path string }
+	var got call
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		got = call{r.Method, r.URL.Path}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	ctx := context.Background()
+
+	cases := []struct {
+		run    func() (Params, error)
+		method string
+		path   string
+	}{
+		{func() (Params, error) { return client.CreateList(ctx, Params{"name": "x"}) }, "POST", "/lists"},
+		{func() (Params, error) { return client.GetAllLists(ctx) }, "GET", "/lists"},
+		{func() (Params, error) { return client.GetList(ctx, "l1") }, "GET", "/lists/l1"},
+		{func() (Params, error) { return client.QueryLists(ctx, Params{}) }, "POST", "/lists/query"},
+		{func() (Params, error) { return client.UpdateList(ctx, "l1", Params{}) }, "PUT", "/lists/l1"},
+		{func() (Params, error) { return client.DeleteList(ctx, "l1") }, "DELETE", "/lists/l1"},
+		{func() (Params, error) { return client.CreateListItem(ctx, "l1", Params{}) }, "POST", "/lists/l1/items"},
+		{func() (Params, error) { return client.CreateListItemsBatch(ctx, "l1", []Params{{"a": 1}}) }, "POST", "/lists/l1/items/batch"},
+		{func() (Params, error) { return client.GetListItem(ctx, "l1", "i1") }, "GET", "/lists/l1/items/i1"},
+		{func() (Params, error) { return client.QueryListItems(ctx, "l1", Params{}) }, "POST", "/lists/l1/items/query"},
+		{func() (Params, error) { return client.CountListItems(ctx, "l1", Params{}) }, "POST", "/lists/l1/items/count"},
+		{func() (Params, error) { return client.UpdateListItem(ctx, "l1", "i1", Params{}) }, "PUT", "/lists/l1/items/i1"},
+		{func() (Params, error) { return client.ArchiveListItem(ctx, "l1", "i1") }, "DELETE", "/lists/l1/items/i1/archive"},
+		{func() (Params, error) { return client.UnarchiveListItem(ctx, "l1", "i1") }, "PUT", "/lists/l1/items/i1/unarchive"},
 	}
 
-	assert.NotContains(t, ctx.Headers, "Cookie")
-
+	for _, tc := range cases {
+		_, err := tc.run()
+		require.NoError(t, err)
+		assert.Equal(t, tc.method, got.method)
+		assert.Equal(t, tc.path, got.path)
+	}
 }
 
-func TestCastle_Authenticate(t *testing.T) {
+func TestPrivacyAndEventsEndpoints(t *testing.T) {
+	type call struct{ method, path string }
+	var got call
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		got = call{r.Method, r.URL.Path}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	ctx := context.Background()
 
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	var executed = false
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		type castleAuthenticateRequest struct {
-			Event      castle.Event      `json:"event"`
-			UserID     string            `json:"user_id"`
-			Context    *castle.Context   `json:"context"`
-			Properties map[string]string `json:"properties"`
-			UserTraits map[string]string `json:"user_traits"`
-		}
-
-		reqData := &castleAuthenticateRequest{}
-
-		username, password, ok := r.BasicAuth()
-
-		assert.Empty(t, username)
-		assert.Equal(t, password, "secret-string")
-		assert.True(t, ok)
-
-		json.NewDecoder(r.Body).Decode(reqData)
-
-		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
-		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, map[string]string{"prop1": "propValue1"}, reqData.Properties)
-		assert.Equal(t, map[string]string{"trait1": "traitValue1"}, reqData.UserTraits)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
-
-		executed = true
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.True(t, executed)
-
+	cases := []struct {
+		run    func() (Params, error)
+		method string
+		path   string
+	}{
+		{func() (Params, error) { return client.RequestUserData(ctx, Params{}) }, "POST", "/privacy/users"},
+		{func() (Params, error) { return client.DeleteUserData(ctx, Params{}) }, "DELETE", "/privacy/users"},
+		{func() (Params, error) { return client.EventsSchema(ctx) }, "GET", "/events/schema"},
+		{func() (Params, error) { return client.QueryEvents(ctx, Params{}) }, "POST", "/events/query"},
+		{func() (Params, error) { return client.GroupEvents(ctx, Params{}) }, "POST", "/events/group"},
+	}
+	for _, tc := range cases {
+		_, err := tc.run()
+		require.NoError(t, err)
+		assert.Equal(t, tc.method, got.method)
+		assert.Equal(t, tc.path, got.path)
+	}
 }
 
-func TestCastle_AuthenticateSimple(t *testing.T) {
+func TestTimeoutTriggersFailover(t *testing.T) {
+	client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		_, _ = w.Write([]byte(`{}`))
+	}, WithTimeout(5*time.Millisecond))
 
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	var executed = false
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		type castleAuthenticateRequest struct {
-			Event   castle.Event    `json:"event"`
-			UserID  string          `json:"user_id"`
-			Context *castle.Context `json:"context"`
-		}
-
-		reqData := &castleAuthenticateRequest{}
-
-		username, password, ok := r.BasicAuth()
-
-		assert.Empty(t, username)
-		assert.Equal(t, password, "secret-string")
-		assert.True(t, ok)
-
-		json.NewDecoder(r.Body).Decode(reqData)
-
-		assert.Equal(t, castle.EventLoginSucceeded, reqData.Event)
-		assert.Equal(t, "user-id", reqData.UserID)
-		assert.Equal(t, castle.ContextFromRequest(req), reqData.Context)
-
-		executed = true
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	cstl.AuthenticateSimple(
-		castle.EventLoginSucceeded,
-		"user-id",
-		castle.ContextFromRequest(req),
-	)
-
-	assert.True(t, executed)
-
-}
-
-func TestCastle_SendAuthenticateCall(t *testing.T) {
-	req := configureRequest()
-
-	cstl, _ := castle.New("secret-string")
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"error": "this is an error"}`))
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err := cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(400)
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err = cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.Write([]byte(`{"type": "invalid_parameter", "message": "error message"}`))
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err = cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.Error(t, err)
-	assert.Equal(t, castle.RecommendedActionNone, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"action": "allow"}`))
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err = cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionAllow, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"action": "challenge"}`))
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err = cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionChallenge, res)
-
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"action": "deny"}`))
-	}))
-
-	castle.AuthenticateEndpoint = ts.URL
-
-	res, err = cstl.Authenticate(
-		castle.EventLoginSucceeded,
-		"user-id",
-		map[string]string{"prop1": "propValue1"},
-		map[string]string{"trait1": "traitValue1"},
-		castle.ContextFromRequest(req),
-	)
-
-	assert.NoError(t, err)
-	assert.Equal(t, castle.RecommendedActionDeny, res)
+	res, err := client.Risk(context.Background(), Params{"user": Params{"id": "u1"}})
+	require.NoError(t, err)
+	assert.Equal(t, true, res["failover"])
 }
